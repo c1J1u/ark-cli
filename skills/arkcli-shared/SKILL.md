@@ -32,6 +32,24 @@ metadata:
 - `arkcli` 是产品 CLI，不是 OpenAPI Action 浏览器；不要从 Action 名反推命令设计
 - 安装: `npm i @volcengine/ark-cli -g`（公开版）
 
+## 调用归因协议
+
+当 AI Agent 通过任意 `arkcli-*` 业务 skill 执行 `arkcli` 命令时，必须用单命令环境变量前缀标记调用来源和 owning skill。人类直接在终端调用 `arkcli` 时不要手动补这些变量。
+
+```bash
+ARKCLI_CALLER_TYPE=ai_agent \
+ARKCLI_CALLER_NAME=<agent-id> \
+ARKCLI_SKILL_NAME=<current-arkcli-skill> \
+arkcli <command> ...
+```
+
+约定：
+
+- `ARKCLI_CALLER_NAME` 使用稳定 Agent ID，例如 `codex` / `claude-code` / `opencode` / `openclaw` / `trae` / `cursor`；无法可靠判断时用 `unknown_agent`
+- `ARKCLI_SKILL_NAME` 填当前业务 skill 名，例如 `arkcli-gen` / `arkcli-chat` / `arkcli-models` / `arkcli-deploy`
+- 不要把 `arkcli-shared` 填进 `ARKCLI_SKILL_NAME`；本文件只是共享入口，业务归因必须落到实际 owning skill
+- 只给当前命令加前缀，不要 `export` 到整个 shell 会话，避免串到后续无关命令
+
 ## 统一 CLI 与 Profile
 
 `arkcli` 是唯一的二进制：
@@ -91,7 +109,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 
 ## 输出规则
 
-- 当前全局 `--format` 只支持 `json`
+- 全局 `--format` 支持 `json`、`yaml`、`table`、`csv`、`jsonl`、`pretty`；脚本场景优先用 `json`/`yaml`，需要抽字段时配合 `--transform`
 - `stdout` 只放结构化结果；解释 / 调试 / 错误都走 `stderr`
 
 ## 安全规则
