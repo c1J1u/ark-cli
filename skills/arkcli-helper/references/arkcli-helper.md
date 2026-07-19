@@ -102,9 +102,25 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 | openviking-dataplane 写了占位符 | OpenViking 列库 / 取 key 失败 | 手动填 `Authorization: Bearer <真实 key>`,或重跑 |
 | 注入了但 agent 里没生效 | MCP 在 agent 启动时加载 | 重启该 agent |
 
+## Platform Endpoint 配置
+
+Platform profile 不使用 Plan 模型列表，而是从本人创建的 Endpoint 中选择。只允许 `Running` 且模型明确为文本输出的 Endpoint；VLM 可用，生图/生视频/生 3D/音频/Embedding/未知模型均拒绝。
+
+```bash
+arkcli helper configure codex \
+  --profile <platform-profile> \
+  --endpoint <ep-id>
+```
+
+- Platform 下不能传 `--model`，也不能使用 `--with-mcp` 或 `--with-supabase`。
+- 没有自己创建的 Endpoint 时，交互向导会打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`，用户创建后选“刷新列表”。
+- Endpoint ID 写入 Agent 配置的 `model`；base URL 使用 `https://ark.<region>.volces.com/api/v3`。context window、max completion tokens、输入/输出模态通过 Endpoint 绑定的基础模型名，复用 Plan 当前的 ArkModels `LookupModelMeta → enrichModelMeta` 管道；查询失败时扩展字段保持未知并省略。
+- Hermes Agent 使用 `volcengine-platform` provider，把 Endpoint ID 写入 `model.default` 和 provider 模型列表，并写入上述 OpenAI-compatible base URL。Hermes 仅支持 model/provider，不支持 MCP 注入。
+- Platform 元数据接入不修改 Agent Plan / Coding Plan 的模型列表、默认模型、富化结果或失败退化语义。Chat/Responses 的具体调用方式继续由 Agent 当前 harness 行为决定。
+
 ## 与 `arkcli helper` / `configure` 的关系
 
-- `arkcli helper`(交互):一条龙选 plan→model→harness→安装→**注入 MCP**→末尾问 byted-supabase。只能在 TTY 跑。
+- `arkcli helper`(交互):选 Platform 时走 Endpoint picker；选 Plan 时仍是一条龙选 plan→model→harness→安装→**注入 MCP**→末尾问 byted-supabase。只能在 TTY 跑。
 - `configure --with-mcp [--with-supabase]`(非交互):配 model/provider **并**注入 MCP(会(重)写 model);加 `--with-supabase` 再连带配 byted-supabase(CLI+Skill+登录态,资格不够/失败只 warn)。**这是非交互/agent 一条命令配齐全套 harness 工具的入口**。Codex 默认写 profile `arkcli`,用 `--codex-config-scope global` 才改全局配置。
 - `mcp`(非交互):**只**注入 MCP,零副作用 —— 适合"已经配好 agent、只想加豆包搜索"或 prompt 触发。**不含 Supabase**。
 

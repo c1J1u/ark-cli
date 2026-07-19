@@ -1,18 +1,40 @@
 ---
 name: arkcli-helper
 version: 1.0.0
-description: "arkcli helper:把 Claude Code / Codex / OpenCode / OpenClaw / Trae 配到火山方舟 Plan。用户说给当前或某个 Agent 配 MCP、豆包搜索、联网搜索、dataPro、OpenViking 时,用 `arkcli helper mcp`(只注入 MCP,不改 model);要连 model/provider 一起配用 `helper configure`;查状态用 `helper list`;移除注入用 `helper reset`。MCP 仅 Agent Plan 支持:个人版 agent-plan 配豆包搜索、dataPro、OpenViking 数据面/控制面;团队版 agent-plan-team 只配豆包搜索 + dataPro。Codex 支持 profile/global 配置范围;Trae 仅注 MCP,支持 `--scope project`。`helper supabase` 不是 MCP,用于安装 byted-supabase-cli + skill 并注入火山登录态。反触发:安装 arkcli skills → arkcli-connect;登录/401/鉴权 → arkcli-auth;生图生视频 → arkcli-gen。"
+description: "arkcli helper:给 Claude Code / Codex / OpenCode / OpenClaw / Hermes Agent 配置火山方舟 Plan 或 Platform Endpoint 的 model/provider，或给支持的 Agent(含 MCP-only 的 Trae)注入 MCP。Platform 仅可选择本人创建、Running、已验证为文本输出的 Endpoint 作 model，不配 MCP/Supabase；Plan 路径保持原有模型、MCP 与 Supabase 能力。用户说给当前或某个 Agent 配 MCP、豆包搜索、联网搜索、dataPro、OpenViking 时,用 `arkcli helper mcp`(只注入 MCP,不改 model);要连 model/provider 一起配用 `helper configure`;查状态用 `helper list`;移除注入用 `helper reset`。"
 metadata:
   requires:
     bins: ["arkcli"]
   cliHelp: "arkcli helper mcp --help"
 ---
 
-# arkcli helper —— 给本机 AI Agent 配置 Plan / 注入 MCP
+# arkcli helper —— 给本机 AI Agent 配置 Plan / Platform Endpoint / 注入 MCP
 
 **前置:** 先用 Read 读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 获取共享安全规则与认证闸门。
 
 把 Agent Plan 内置 MCP server 注入本机 AI Agent 的配置 —— 这正是 `arkcli helper` 交互向导里"注入 MCP"那一步,这里做成**非交互、可被 prompt 触发**。个人版 `agent-plan` 注入四台;团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台。
+
+## Platform Endpoint 配置
+
+Platform profile 只负责配置 Agent 的 model/provider：`model` 写为用户选择的 Endpoint ID，base URL 使用 Platform 的 `/api/v3`，协议继续由各 harness 保持现有行为（Chat 或 Responses）。
+
+- 只展示**当前 SSO 子用户创建**、`Running`、模型被明确验证为**文本输出**的 Endpoint；VLM（图文输入、文本输出）可用。
+- 生图、生视频、生 3D、音频、Embedding、内容生成或未知模型一律不展示，也不能通过 `--model` 绕过。
+- Agent 配置中的 `model` 仍写 Endpoint ID；context window、max completion tokens、输入/输出模态按 Endpoint 绑定的基础模型名，复用 Agent Plan / Coding Plan 现有的 ArkModels 元数据富化规则。元数据查询失败时同样 best-effort 省略扩展字段，不阻断已通过资格校验的 Endpoint。
+- Hermes Agent 支持把 Platform Endpoint 写成 `volcengine-platform` model/provider；仍不支持 MCP 注入。
+- 该接入只为 Platform 增加元数据调用方，不修改 Plan 模型清单、默认模型、元数据查询、MCP 或 Supabase 行为。
+- 没有自己创建的 Endpoint 时，向导打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`；创建完成后选择“刷新列表”。已有但未运行的 Endpoint 需先启动再刷新。
+- Platform **不支持** MCP、OpenViking 或 Supabase；`--with-mcp`、`--with-supabase` 会报错。
+
+非交互调用：
+
+```bash
+arkcli helper configure codex \
+  --profile <platform-profile> \
+  --endpoint <ep-id>
+```
+
+配置成功后，Endpoint 可按 OpenAI 兼容入口调用：`/responses` 或 `/chat/completions`，请求的 `model` 均使用该 `<ep-id>`。
 
 ## 注入的是哪几台 MCP(写死,勿幻觉)
 
@@ -39,7 +61,7 @@ metadata:
 | 调用 | 说明 |
 |------|------|
 | `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project] [--codex-config-scope profile|global] [--codex-profile <name>]` | **只注入 MCP,不改 model**。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json`;Codex 默认写 profile `~/.codex/arkcli.config.toml` |
-| `arkcli helper configure <harness> [--with-mcp] [--with-supabase] [--codex-config-scope profile|global] [--codex-profile <name>]` | 配 model/provider 指向 plan;`--with-mcp` 连带注入 MCP,`--with-supabase` 连带配 byted-supabase。**非交互/agent 场景的全套入口** |
+| `arkcli helper configure <harness> [--profile P] [--model M\|--endpoint ep-id] [--with-mcp] [--with-supabase] [--codex-config-scope profile\|global] [--codex-profile <name>]` | Plan 用 model/provider；Platform 必须用 `--endpoint` 选择文本 Endpoint。仅 Plan 可加 MCP/Supabase。 |
 | `arkcli helper list` | 查支持的 agent + 安装/配置状态(只读) |
 | `arkcli helper supabase [--profile P]` | **非 MCP**:装 byted-supabase-cli + skill + 注入火山登录态(打通 byted-supabase 数据库能力);跟 harness 无关。仅 Agent Plan(个人版全档 + 团队版全档) |
 | `arkcli helper reset <harness>` | 移除 arkcli 注入的配置(含 MCP) |
@@ -57,14 +79,16 @@ metadata:
 - **动作**:装 CLI(`npx -y @byted-supabase/cli@latest install`,连匹配的 byted-supabase agent skill 一起)→ 用所选 Agent Plan 身份的 STS + refresh_token 组装 Console Login 凭证 → `byted-supabase-cli login --credential-file`(个人版带 `--is-agent-plan`,团队版额外 `--agent-plan-seat-id <实时反查>`)注入到固定 profile `ark_login`。
 - **触发**:用户说『配 byted-supabase / 打通数据库 / 装 supabase cli / 连接 supabase / 用我的 plan 连数据库』。
 - **三条配置入口**(同一内核 `supabase.Configure`):① 专配 `arkcli helper supabase`;② 非交互/agent 顺带配 `arkcli helper configure <h> --with-supabase`(无确认框、失败只 warn,不阻断 harness 配置);③ 交互向导 `arkcli helper` 末尾可选步骤(仅合格 plan)。`helper mcp` / `configure --with-mcp` **不含** Supabase —— 想顺带配必须显式 `--with-supabase`。
+- ⚠️ **v3 ve handoff 身份 (source=ve) 不能配 supabase**: `helper supabase` 内核 `gatherInputs` 强依赖 `LoadIdentityTokenFull(key)` 读 identity_store `token.json` 里的 refresh_token 组装 Console Login 凭证; 而 source=ve 身份**不落 token.json** (refresh_token 由 volcengine-go-sdk 内部管, arkcli 侧拿不到明文), 会报 `读 identity token: ...`。命中该报错时告诉用户: 想配 supabase 需要走 arkcli 原生 SSO 登录一次 (跳过 ve handoff), 具体做法是先 `ve logout` (或让 `ve` 处于未登录态) 再跑 `arkcli auth login` 拿到 `source="arkcli"` 的 identity。
 
 ## 范围边界(管好,别越界)
 
+- **model/provider 可配置 target**:`claude-code` / `codex` / `opencode` / `openclaw` / `hermes`。其中 Hermes 支持 Plan 和 Platform Endpoint，但不支持 MCP。
 - **可注入 target 有 5 个**:`claude-code` / `codex` / `opencode` / `openclaw` / `trae`。
-- 本 skill 会被 `arkcli +connect` 装进很多 agent(cursor / gemini-cli / codex …40+),但**只能配上面这 5 个**。host 是其它 agent 时:要么用户点名其一作 target,要么命令会报"请显式指定" —— **绝不静默配错对象**。
+- 本 skill 会被 `arkcli +connect` 装进很多 agent(cursor / gemini-cli / codex …40+),但 **MCP 注入只支持上一条列出的 5 个 target**。host 是其它 agent 时:要么用户点名其一作 target,要么命令会报"请显式指定" —— **绝不静默配错对象**。
 - `codex` 支持 model/provider + MCP。默认 **profile 模式**写 `~/.codex/arkcli.config.toml`,需用 `codex --profile arkcli` 启动 terminal/TUI 才生效;传 `--codex-config-scope global` 才写 `~/.codex/config.toml`,该范围可能被 Codex CLI/TUI、Codex App、IDE extension 共享读取。
 - `trae`(AI IDE)是 MCP-only:只注入 MCP、不配 model/provider;**无运行态宿主检测**(不会被自动当成 host),只能显式 `arkcli helper mcp trae`。默认写用户级 `~/.trae/mcp.json`,加 `--scope project` 写项目级 `./.trae/mcp.json`(项目级需在 Trae「设置 → MCP」开启「启用项目级 MCP」开关 + 重开项目)。
-- `hermes` 暂不支持 MCP 注入 → 命中就直说"暂不支持"。
+- `hermes` 支持 Plan / Platform Endpoint 的 model/provider 配置，但暂不支持 MCP 注入 → MCP 请求命中就直说"暂不支持"。
 
 ## 前提
 
