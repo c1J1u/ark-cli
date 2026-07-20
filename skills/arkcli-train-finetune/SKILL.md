@@ -33,6 +33,9 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 数据格式以火山方舟[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)为主要依据，并使用模型感知的服务端校验确认。不在 reference 中维护容易过期格式说明及样例。
 
+
+
+
 ## 默认训练类型、训练方法与部署限制
 
 - 用户未指定训练类型（`--type`）时，默认按 SFT 处理。
@@ -51,17 +54,17 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 - 自定义训练代码
 - 当前 ArkCLI 版本没有对应能力
 
-当需要fallback时，先检查当前 ArkCLI 的 `train finetune`、`models finetune-config` 和相关 `--help` 是否能够完整表达用户配置。若 ArkCLI 已提供对应参数或 pipeline 配置并能完整完成任务，继续走标准创建流程。
+需要 fallback 时，先检查当前 ArkCLI 的 `train finetune`、`models finetune-config` 和相关 `--help` 是否能够完整表达用户配置。若 ArkCLI 已提供对应参数或 pipeline 配置并能完整完成任务，继续走标准创建流程。
 
 命中 fallback 时暂停执行，询问用户：
 
 > 当前任务需要精调 SDK，ArkCLI 标准创建流程无法表达该配置。是否现在自动安装精调 SDK 并继续？
 
-只有用户明确确认后，才读取并执行精调 SDK Skill。当前配套入口为 [`references/ark-finetune-sdk.md`](references/ark-finetune-sdk.md)；由该 skill 负责安装 SDK、准备配置或代码并提交任务。用户拒绝时不要安装、不要提交。
+只有用户明确确认后，才读取并执行 [`references/ark-finetune-sdk.md`](references/ark-finetune-sdk.md)；由该 reference 负责安装 SDK、准备配置或代码并提交任务。用户拒绝时不要安装、不要提交。
 
 ## 通用执行规则
 
-1. 先运行 `arkcli auth status`，认证失败时按 shared skill 恢复。
+1. 运行 `arkcli auth status`，认证失败时按 shared skill 恢复。
 2. 读操作可直接执行；上传文件、创建任务、产生费用和破坏性操作必须遵守确认规则。
 3. 用户已经明确指定参数时不要重复询问；缺失且无法从实时查询推导时再询问。
 4. 输出区分事实来源：CLI/API 返回值、服务端校验结果、以及本地粗略估算。
@@ -70,3 +73,4 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 ## 相关文档
 
 <https://www.volcengine.com/docs/82379/1099350>
+

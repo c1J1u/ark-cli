@@ -1,4 +1,4 @@
-# RL 插件
+# SDK RL 插件
 
 实现或审查 rollout、grader、自定义 pipeline、tracing，以及把推理 Agent 改造成训练 Agent 时读取本文件。
 

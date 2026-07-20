@@ -42,27 +42,15 @@ arkcli infer endpoint capability get --model <model> --version <version>
 
 若用户未指定模型，展示少量相关候选项并请用户选择，不要自行提交高成本任务。
 
-## 2. 判断是否需要fallback到精调SDK
+## 2. ArkCLI 能力回退
 
-若 ArkCLI 可以完成，继续标准流程。若命中主 skill 的 SDK Fallback Gate，暂停并征求确认；确认后转交精调 SDK Skill，不再执行本 reference 的标准提交步骤。
+精调 SDK 是 fallback，不是默认入口。
 
-精调SDK 是 fallback，不是默认入口\
-当且仅当识别到 ArkCLI 精调训练相关命令无法完成，例如：
+先检查当前版本的 `arkcli train finetune`、`arkcli models finetune-config` 和相关 `--help`。ArkCLI 能完整表达用户配置时继续标准流程；不能表达复杂强化学习、自定义 job、grader、rollout plugin 或自定义训练代码时，暂停并询问：
 
-- 复杂强化学习任务
-- 自定义job.YAML/job.py
-- 自定义 grader / rollout plugin
-- 自定义训练代码
-- 识别到ArkCLI 当前版本没有对应能力时
+> 当前配置超出 ArkCLI 标准创建能力。是否转交扩展精调流程继续处理？
 
-则提示：
-
-```
-当前任务需要精调 SDK，ArkCLI 标准创建流程无法表达该配置。
-是否现在自动安装精调 SDK 并继续？
-```
-
-用户确认后，参考[`references/ark-finetune-sdk.md`](references/ark-finetune-sdk.md)下载安装SDK后，完成指令
+只有用户明确确认后，才读取 [`ark-finetune-sdk.md`](ark-finetune-sdk.md)，并停止执行本 reference 的后续创建步骤。安装、鉴权、配置和提交均由该文档负责；用户拒绝时不要安装或提交。
 
 ## 常用创建参数
 
@@ -97,7 +85,7 @@ arkcli train finetune create --help
 | `--shuffle-random-seed`                                      | 数据顺序控制：随机、不打乱或固定种子                                           |
 | `--save-model-limit`                                         | 保留训练产物数量                                                     |
 | `--enable-trajectory`                                        | RL 轨迹日志；需要任务和项目配置支持                                          |
-| `--pipeline`                                                 | RL pipeline 配置文件；若需要 Python plugin 且 CLI 不能表达，走 SDK fallback |
+| `--pipeline`                                                 | RL pipeline 配置文件；若需要 Python plugin 且 CLI 不能表达，按“ArkCLI 能力回退”处理 |
 | `--yes`                                                      | 跳过 CLI 确认；Agent 只能在用户二次确认/明确表示直接创建后添加                        |
 
 ## 3. 获取并校验训练数据
@@ -111,7 +99,10 @@ arkcli train finetune create --help
 
 ### `dataset_schema` 映射
 
-先从 `arkcli models finetune-config <model> <version> --type <type>` 读取 `dataset_schema`，再按下表理解它对应官方文档中的数据集格式。字段细节、样例和限制仍以[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)为准。
+先从 `arkcli models finetune-config <model> <version> --type <type>` 读取 `dataset_schema`，再按下表理解它对应的数据集格式。
+
+火山方舟的字段细节、样例和限制以公开[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)为准。
+
 
 | `dataset_schema`      | 数据集格式               |
 | --------------------- | ------------------- |
@@ -129,7 +120,8 @@ arkcli train finetune create --help
 
 ### 本地离线检查
 
-本地文件先依据[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)检查：
+火山方舟本地文件先依据公开[模型精调数据集格式说明](https://www.volcengine.com/docs/82379/1099461?lang=zh)检查：
+
 
 - 文件可读、编码正确、大小合理
 - JSONL 每个非空行都是一个 JSON object
