@@ -35,7 +35,7 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --page-delay 800 --
   作为 `TagFilters.{Key: "sys:ark:createdBy", Values: [...]}` 下发到 `ListEndpoints`。
 - 与 `--status` / `--model` / `--page-*` 可自由叠加（例如 `--mine --status Running`）。
 - 仅在 **SSO 子账号**登录态下可用。其它态会**直接报错**，不静默退化：
-  - 非 SSO（AK/SK / APIKey）：`--mine requires an SSO sub-user login`，按 profile tenant 引导登录（火山：`arkcli auth login volc-sso`）
+  - 非 SSO（AK/SK / APIKey）：`--mine requires an SSO sub-user login`，运行 `arkcli auth login volc-sso` 重新建立 Volc 身份
   - SSO root：`--mine is not supported for root logins`，引导改用 sub-user 登录
   - SSO 但 UserID/UserName claim 缺失：引导重登刷新身份
 

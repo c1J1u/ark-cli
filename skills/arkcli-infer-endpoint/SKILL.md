@@ -31,8 +31,8 @@ metadata:
 arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 ```
 
-服务端按 `sys:ark:createdBy` tag 过滤，只返回当前 SSO sub-user 创建的 endpoint。  
-需要 SSO 子账号登录；root 账号 / AK-SK 直接报错（引导重登）。  
+服务端按 `sys:ark:createdBy` tag 过滤，只返回当前 SSO sub-user 创建的 endpoint。
+需要 SSO 子账号登录；root 账号 / AK-SK 直接报错（引导重登）。
 详细行为见 [`references/arkcli-infer-endpoint-list.md`](references/arkcli-infer-endpoint-list.md)。
 
 ## `infer endpoint create` 与 `+deploy` 的边界

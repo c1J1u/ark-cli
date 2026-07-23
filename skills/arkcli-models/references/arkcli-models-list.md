@@ -106,7 +106,7 @@ JSON 格式的分页结果，顶层字段包括 `page_number`、`page_size`、`t
 | 错误 | 原因 | 处理方式 |
 |------|------|---------|
 | 空结果 | `--name` 精确匹配无命中 | 改用 `arkcli models search` 做模糊搜索 |
-| 认证失败 | 未登录或凭证过期 | 按 profile tenant 选择：火山 `arkcli auth login volc-sso` |
+| 认证失败 | 未登录或凭证过期 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 
 ## 注意事项
 

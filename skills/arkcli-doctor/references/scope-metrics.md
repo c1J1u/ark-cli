@@ -195,8 +195,3 @@ arkcli doctor metrics raw \
 - **"异步任务成功率怎么样"** → `async.gateway.task.success_rate`
 - **"图像生成都生成了哪些分辨率"** → `content.gen.image.distribution.by_resolution`
 - **catalog 不覆盖的边角查询** → `arkcli doctor metrics raw --promql '...'`,记得 PromQL 必须引用 `ark_*` metric
-
-## 设计深读
-
-- 完整设计文档 [`docs/doctor-metrics.md`](../../../docs/doctor-metrics.md):catalog schema、参数白名单类型、`${@filters}` 占位符语义、安全/转义模型、与诊断 scope 的边界。
-- catalog 源 [`internal/service/doctor/metrics/catalog.yaml`](../../../internal/service/doctor/metrics/catalog.yaml):36 条 entry 的 PromQL 模板与参数声明,运维 PR 即可扩展。

@@ -177,10 +177,10 @@ Fixer 分两型（优先 A 型）：
 
 ```bash
 # 1) lockdown 测试：抓"加了码漏配 meta" / "subtype/section 锚点对不上" / "category 漏注册"
-go test ./internal/service/doctor/...
+go test -tags volc ./internal/service/doctor/...
 
-# 2) 编译 + embed 打包（reference 文件被 go:embed 收进二进制）
-go build ./...
+# 2) Volc 编译 + embed 打包（reference 文件被 go:embed 收进二进制）
+go build -tags volc ./...
 
 # 3) skill 结构校验
 cd skill-creator && python3 -m scripts.quick_validate ../skills/arkcli-doctor

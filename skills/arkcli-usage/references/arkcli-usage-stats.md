@@ -138,7 +138,7 @@ JSON 格式：
 
 | 错误 | 原因 | 处理方式 |
 |------|------|---------|
-| `not logged in` | 未认证 | 按当前 profile tenant 选择：火山 `arkcli auth login volc-sso` |
+| `not logged in` | 未认证 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 | `AuthFailure` / 401 | AK/SK 或 SSO token 无效 | 重新登录 |
 | 时间范围超过 31 天 | API 限制 | 拆分为多次查询 |
 | 返回空 records | 无匹配数据或过滤条件过严 | 去掉过滤 flag 重试 |

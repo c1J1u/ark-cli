@@ -14,6 +14,12 @@ metadata:
 
 > **本 skill 只负责编排顺序与分支。** 每一步的**私有命令细节**（如 `+deploy` 的 `--model` / `--name` / JSON 字段，`models search` 的过滤）都在对应能力 skill 里，**本文不重复**。本文只允许出现跨命令通用的安全护栏（如 `--dry-run` 预演）；一旦出现某个命令的私有 flag 说明，就是越界。
 
+## 离线 / `--help` 验证模式
+
+- 用户已给出模型且明确禁止远端查询时，跳过 Step 1 的实际 `models search/get`；不得为了“验证流程”偷偷查询模型或 Endpoint。
+- Step 2 即使只查看帮助，也必须保留当前产品的资源范围语义：运行 `arkcli infer endpoint list --mine --help`，不能退化成无范围的 `list --help`，也不能换成 `--page-all`。
+- `--help` 模式只验证命令选择，不执行创建、部署、登录或任何真实资源查询。
+
 ## 它解决什么
 
 用户表达的是**意图级**目标（"我想在服务里用豆包"），而不是命令级目标（"部署一个 endpoint"）。这类口语通常不会命中 [`arkcli-deploy`](../arkcli-deploy/SKILL.md) 的关键词，但本质就是"正式接入 = 需要一个可复用的 Endpoint"。本 skill 把这个意图固化成一条有序、有分支、可回归的链路，逐步 delegate 给 owning skill。

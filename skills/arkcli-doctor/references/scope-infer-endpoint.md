@@ -70,7 +70,7 @@ arkcli doctor infer-endpoint ep-xxx --fix --dry-run
 |---------------------------|------------------------------------------------|-------------------------------------------------------------------------------|
 | `endpoint.usage`          | 调用次数 / token 用量（输入 + 输出分开）        | 仅展示，不告警                                                                |
 | `endpoint.error_rate`     | 错误率（按模态分流，与 `quota_pressure` 同款思路）| 默认阈值 5%，≥5% 标 ⚠。LLM/生图 → `overall.rate_percent`；生视频 → `request.rate_percent`（前端调用错误率）+ `task.rate_percent`（异步执行错误率，doctor 侧从成功率取 `1 - rate`）|
-| `endpoint.errors`         | 错误码分布（按模态分流，与 `error_rate` 同款思路）。LLM/生图 → `errors.overall.by_error_code[]`（`code` + `http_status_code` 拆桶；LLM 用 `code` 标签，生图用 `volc_error_code`，统一成 `code` 字段）；生视频 → `errors.task.by_error_code[]`（仅任务执行失败，无 `http_status_code` 维度）；主导错误码 → 加载对应错误码 reference |
+| `endpoint.errors`         | 错误码分布（按模态分流，与 `error_rate` 同款思路） | LLM/生图 → `errors.overall.by_error_code[]`（`code` + `http_status_code` 拆桶；LLM 用 `code` 标签，生图用 `volc_error_code`，统一成 `code` 字段）；生视频 → `errors.task.by_error_code[]`（仅任务执行失败，无 `http_status_code` 维度）；主导错误码 → 加载对应错误码 reference |
 
 **错误码路由**——按 doctor 总入口的 references 表：
 

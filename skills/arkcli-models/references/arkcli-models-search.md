@@ -143,7 +143,7 @@ search [keyword] [filters]
 | `--modality video` 返回大量噪声 | 默认 strict-filter=false，缺数据模型未排除 | 加 `--strict-filter` |
 | 数值过滤后结果意外 | 部分模型 ArkModels 没有 context_window | 接受默认保留（注意 ctx 为 null 的可能不准）|
 | 没有 thinking 模型 | --capability 默认非 strict，可能被噪声淹没 | 加 `--strict-filter` |
-| enrich 字段全为 null | 未 SSO 登录 | 按 profile tenant 选择：火山 `arkcli auth login volc-sso` |
+| enrich 字段全为 null | 未 SSO 登录 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 | 召回明显少于预期 | cache 旧；可能 ArkModels 暂时不可用 | 加 `--refresh-cache` 强制同步刷新 |
 
 ## 与 `models list` / `models get` 的分工

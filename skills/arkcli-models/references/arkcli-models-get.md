@@ -33,7 +33,7 @@ JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版�
 | 错误 | 原因 | 处理方式 |
 |------|------|---------|
 | 模型不存在 | ID 拼写错误或模型已下线 | 用 `arkcli models search` 确认模型名 |
-| 认证失败 | 未登录或凭证过期 | 按 profile tenant 选择：火山 `arkcli auth login volc-sso` |
+| 认证失败 | 未登录或凭证过期 | 运行 `arkcli auth login volc-sso` 重新建立 Volc 身份 |
 
 ## 注意事项
 
@@ -42,7 +42,7 @@ JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版�
 
 ## 守卫
 
-- 认证失败先回到 `arkcli auth status`，再按 profile tenant 选择登录命令
+- 认证失败先回到 `arkcli auth status`，再运行 `arkcli auth login volc-sso`
 - 不确定模型 ID 时，先用 `arkcli models search` 或 `arkcli models list --name` 确认，避免反复调用不存在的 ID
 - 只读查询优先，不要在模型详情排障中切换 profile 或修改本地配置，除非用户明确确认
 

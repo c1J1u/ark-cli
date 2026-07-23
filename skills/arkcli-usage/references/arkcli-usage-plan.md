@@ -4,7 +4,7 @@
 
 > **跟 `stats` / `billing` 的区别（务必先看）：**
 > - `usage stats` — 按 token 计费的 **inference 用量**（按时间序列,有 5–30 分钟延迟）
-> - `usage billing` — 按月**结算金额**(火山计费中心拆账,T+1 出账)
+> - `billing list` — 按月**结算金额**(火山计费中心拆账,T+1 出账)
 > - `usage plan` — **订阅类套餐(AgentPlan / CodingPlan)的 quota 快照**(后端"我的套餐"实时数据,跟火山方舟控制台 1:1)
 >
 > 用户问「我用了多少 token / 多少次请求」走 stats;问「花了多少钱」走 billing;问「我的套餐还剩多少额度 / 用了百分之几 / 几号刷新」走 **plan**。
