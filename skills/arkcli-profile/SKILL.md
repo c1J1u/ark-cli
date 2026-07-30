@@ -1,7 +1,7 @@
 ---
 name: arkcli-profile
-version: 1.1.0
-description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理 plan 类 profile 的 default 模型（text/image/video）；设置某 modality 的默认资源 ID。0.1.16 把原 `arkcli config init/list/show/switch/delete` 全部迁过来，是 profile 类操作的唯一入口；旧 config 子命令已 deprecated。"
+version: 1.1.1
+description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理五类 profile 的默认资源与持久身份切面。临时 API Key/Base URL/Endpoint 调用不写回 profile，按 arkcli-shared 的 execution-context 契约执行。旧 config 子命令已 deprecated。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -19,7 +19,8 @@ metadata:
 - profile 是 0.1.16 引入的 **统一身份切面**，把 `(type × region × project × owner_trn × api_keys)` 五个属性绑成一组
 - profile 写操作（create / use / set-default / keys / models / delete / rename）一律走 `arkcli profile <verb>`；旧的 `arkcli config init/list/show/switch/delete` 已 deprecated，不要再引导用户用
 - 只读排障优先 `arkcli profile show` 或 `arkcli profile list`，不要上来就改
-- ProfileType 三种：`platform` / `agent-plan` / `coding-plan`；选错 type 后续 `+chat / +gen` 默认模型派发会错
+- ProfileType 五种：`platform` / `agent-plan` / `agent-plan-team` / `coding-plan` / `coding-plan-team`；其 text/image/video 所需的数据面、凭证与资源不同
+- 用户只想临时传 API Key / Base URL / Endpoint 时，不要创建、切换或修改 profile；先读 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)
 
 ## 适用场景
 
@@ -86,6 +87,12 @@ Agent 行为约定：
 | `platform` | 火山方舟 console 的标准用法 | `/api/v3` | OpenTOP | ✓ 默认 endpoint |
 | `agent-plan` | 火山方舟 Agent Plan 订阅（个人版） | `/api/plan/v3` | OpenTOP + Plan API | ✓ AgentPlanImage/VideoModels 硬编 |
 | `coding-plan` | 火山方舟 Coding Plan 订阅（个人版） | `/api/coding/v3` | OpenTOP + CodingPlan API | text: 套餐内文本模型；image/video: 借道 platform 数据面 + 用户 +deploy 的 endpoint id (S10, commit f69be53) |
+| `agent-plan-team` | Agent Plan 团队席位 | `/api/plan/v3` | OpenTOP + Plan API | text/image/video 都用套餐模型 + 团队席位 Key |
+| `coding-plan-team` | Coding Plan 团队席位 | `/api/coding/v3` | OpenTOP + CodingPlan API | text 用套餐模型 + 团队席位 Key；image/video 用 platform Endpoint + 后付费 API Key |
+
+> Coding Plan 个人版的 text lane 使用后付费 API Key；Coding Plan Team 只有 text
+> lane 使用团队席位 Key。完整矩阵见
+> [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。
 
 `plan-tier`：
 - agent-plan：`small` / `medium` / `large` / `max`
@@ -125,3 +132,4 @@ Agent 行为约定：
 - [`references/arkcli-profile-create.md`](references/arkcli-profile-create.md)
 - [`references/arkcli-profile-keys.md`](references/arkcli-profile-keys.md)
 - [`references/arkcli-profile-set-default.md`](references/arkcli-profile-set-default.md)
+- [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md) — 五类 Profile 的调用矩阵与临时覆盖

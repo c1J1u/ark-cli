@@ -1,7 +1,7 @@
 ---
 name: arkcli-resources
-version: 1.0.0
-description: "arkcli resources 实时控制面查询：按 profile.type 派发，列出当前/指定 profile 下可用的 endpoint / plan 模型 ID 列表。read-only，不写 profile.yaml。change default 走 `arkcli profile set-default` 或 `+deploy --set-default`。"
+version: 1.1.0
+description: "arkcli resources 实时控制面查询：列出当前/指定 profile 可见资源及其调用兼容性；把 Endpoint 解析为权威模型、模态与候选工作流。read-only，不写 profile.yaml。用户临时给出 ep-... 但未说明该走 Chat、Understand 还是 Gen 时优先使用。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -15,8 +15,10 @@ metadata:
 ## 使用原则
 
 - `arkcli resources list` 是 read-only 实时控制面查询，**每次都打上游**，没有本地缓存
+- `arkcli resources resolve <ep-id>` 读取 Endpoint 绑定与模型权威元数据，返回可用工作流、生成模态与 Endpoint region；不按 ID/模型名子串猜用途
 - 派发逻辑跟 profile.Type 走：platform → `ListEndpoints`，agent-plan / coding-plan → 对应 plan API
-- **团队版 `agent-plan-team` / `coding-plan-team` 行为等同对应个人版**：agent-plan-team ≈ agent-plan（自带生文/生图/生视频预置模型）；coding-plan-team ≈ coding-plan（自带生文模型，`--modality image|video` 借道 platform endpoint 池）。资源派发 / base_url / 模型清单跟个人版完全一致，只是凭证来自团队席位
+- `agent-plan-team` 三模态使用团队席位 Key + 套餐模型；`coding-plan-team` 只有 text 使用团队席位 Key，image/video 虽可看到 platform Endpoint，但调用还需要后付费 API Key
+- `resources list` 区分“账号可见”与“当前 profile 可调用”：读取 `invocable` 与 `required_overrides`，不要看到 ID 就断言当前凭证可用
 - 这个 skill 不负责改 default —— 用户要换 default 走 [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md) 的 `profile set-default`
 - `--profile X` 真切身份（P0-A 修正）：用 X 的 token / UserID 打控制面，不是 active=A 的身份打完再展示成 B 的资源
 
@@ -26,6 +28,8 @@ metadata:
 - 用户跑 `profile set-default` 时报 `<id> 不在可用列表`，回这里看真实可用 ID
 - 用户跑 `+chat / +gen --model` 报 `InvalidEndpointOrModel.NotFound`，回这里确认 ID 在 active profile 下可见
 - 用户切了 profile，想知道新 profile 下的可用资源跟旧的有什么差异
+- 用户只给出一个 Endpoint，不知道该走 `+chat`、`+understand` 还是 `+gen`
+- 用户传了 Endpoint + API Key，但未给 Base URL，需要从 Endpoint 权威 region 派生
 
 ## 反唤起信号
 
@@ -47,17 +51,19 @@ metadata:
 
 ## Agent 快速执行顺序
 
-1. 不确定当前 profile → `arkcli profile show --format json`（看 `type`）
-2. text 资源 → `arkcli resources list --modality text --format json`
-3. image / video 资源 → `arkcli resources list --modality image --format json` / `--modality video`
-4. 多 profile 对比 → 分别跑 `--profile A --modality text` 和 `--profile B --modality text`
-5. 输出里 `is_default: true` 标的是当前 profile 的 default，用户切换 default 走 `arkcli profile set-default`
+1. 用户给了 `ep-...` → `arkcli resources resolve <ep-id> --format json`，先读 `supported_workflows` / `generation_modality` / `requires_user_intent`
+2. 不确定当前 profile → `arkcli profile show --format json`（看 `type`）
+3. text 资源 → `arkcli resources list --modality text --format json`
+4. image / video 资源 → `arkcli resources list --modality image --format json` / `--modality video`
+5. 多 profile 对比 → 分别跑 `--profile A --modality text` 和 `--profile B --modality text`
+6. 读取每项的 `invocable` / `required_overrides`；`is_default: true` 只表示默认偏好，不保证当前凭证可调用
 
 ## 命令一览
 
 | 命令 | 说明 |
 |------|------|
-| `arkcli resources list` | 列当前/指定 profile 下指定 modality 的可用资源 ID（实时） |
+| `arkcli resources list` | 列当前/指定 profile 下指定 modality 的可见资源、数据面与调用兼容性 |
+| `arkcli resources resolve <endpoint-id>` | 权威解析 Endpoint 绑定模型、模态、候选工作流与 region |
 
 ## 输出形态
 
@@ -67,16 +73,21 @@ metadata:
   "type": "platform",
   "modality": "text",
   "items": [
-    {"id": "ep-20260424-aaaaa"},
-    {"id": "ep-20260424-bbbbb", "is_default": true},
-    {"id": "ep-20260424-ccccc"}
+    {
+      "id": "ep-20260424-aaaaa",
+      "resource_kind": "endpoint",
+      "data_plane": "platform",
+      "credential_kind": "paygo",
+      "invocable": true
+    }
   ],
   "current_default": "ep-20260424-bbbbb",
   "item_count": 3
 }
 ```
 
-`is_default` 仅在 `items[].id == current_default` 时出现；如果 default 是空字符串则 items 全无 `is_default`。
+`is_default` 仅在 `items[].id == current_default` 时出现；`invocable=false` 时查看
+`required_overrides`（例如 `["api_key"]`）。可见资源不等于当前凭证可调用。
 
 ## 常见错误
 
@@ -90,3 +101,4 @@ metadata:
 - [`../arkcli-profile/SKILL.md`](../arkcli-profile/SKILL.md) — 看完 resources 后要换 default 时进
 - [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) — 找模型 / 对比能力时进
 - [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md) — 没看到想要的 endpoint 时进创建链路
+- [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md) — Profile/凭证/资源矩阵与临时覆盖

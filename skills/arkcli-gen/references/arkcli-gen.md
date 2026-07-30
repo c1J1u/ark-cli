@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-图片/视频生成的执行层文档（`+gen` 全参数）。**这是三步工作流的第 3 步**；完整工作流（① `resources list` 查 profile 模型 → ② `models get` 查 supported_params → ③ `+gen` 生成）见 [`../SKILL.md`](../SKILL.md)。
+图片/视频生成的执行层文档（`+gen` 全参数）。**这是三步工作流的第 3 步**；完整工作流（① `resources list` 查 profile 资源或 `resources resolve` 解析显式 Endpoint → ② 模型名用 `models get` 查 supported_params → ③ `+gen` 生成）见 [`../SKILL.md`](../SKILL.md)。
 
 > **⚠️ 视频任务默认异步**：提交即返回 `task_id`（`status: queued`），用 `arkcli gen get <task_id>` 轮询；要同步阻塞加 `--wait`。图片任务同步返回。
 
@@ -76,22 +76,44 @@ arkcli +gen --model doubao-seedance-2-0-260128 \
 # 输出完整 JSON
 arkcli +gen --model doubao-seedance-1-5-pro-251215 --format json "产品广告视频"
 
-# 自定义推理接入点 (endpoint ID) — 必须显式 --modality
-arkcli +gen --model ep-20260416234150-zsd4v --modality image "简约商务笔记本"
+# 自定义推理接入点：先解析权威模态；唯一 image/video 时可自动识别
+arkcli resources resolve ep-20260416234150-zsd4v --format json
+arkcli +gen --model ep-20260416234150-zsd4v "简约商务笔记本"
+
+# Endpoint 同时支持多种生成模态或元数据不完整时，按用户意图显式指定
 arkcli +gen --model ep-20260416234150-zsd4v --modality video "一只柴犬奔跑"
+
+# Endpoint + 临时 API Key：未给 Base URL 时从 Endpoint 权威 region 派生
+arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬奔跑"
 ```
+
+## 临时执行上下文与 dry-run
+
+用户给出 Profile / API Key / Base URL / Endpoint 的任意组合时，先读
+[`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。
+
+- 显式 Endpoint 优先于 active profile 的套餐模型/default，不要因当前是 Agent Plan
+  或 Coding Plan 就改写用户给出的 `ep-...`。
+- 显式 Base URL 必须同时显式提供 API Key。
+- Endpoint + API Key 可以不传 Base URL：CLI 读取 Endpoint 权威 region 后派生
+  platform Base URL。
+- API Key + Base URL + Endpoint 是 stateless 单次调用，不切换/修改 profile。
+- 不根据 API Key 的 `ark-*` 文本形态判断套餐或凭证类型。
+- `--dry-run` 与真实路径共享 Endpoint/模型元数据和模态解析；允许只读控制面发现，
+  但不调用图片/视频生成数据面，不创建 task，不产生计费/用量或存储产物。
+- dry-run 输出包含无 secret 的 `execution_context`，Endpoint 场景可附带
+  `resource_resolution`；不得回显 API Key。
 
 ## 参数
 
 | 参数 | 必填 | 类型 | 说明 |
 |------|------|------|------|
 | `<prompt>` | 是 | positional | 生成提示词（位置参数，放在命令最后） |
-| `--model` | 否 | string | **完整版本化模型 ID**（如 `doubao-seedream-5-0-260128`、`doubao-seedance-1-5-pro-251215`）或推理接入点 ID（`ep-xxx`）。仅传族名会直接 404 `InvalidEndpointOrModel.NotFound`。**0.1.16+ 可省略**：缺省时按 `--modality` fallback 到 active profile 的 `Resources.<modality>.Default`，未设时报 hint 引导 `arkcli profile set-default --modality <m> <id>` |
-| `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。使用 `seedream-*` / `seedance-*` 模型时可自动推断；使用 endpoint ID 时**必填** |
+| `--model` | 否：可 fallback 到 active profile 的 `Resources.<modality>.Default` | string | **完整版本化模型 ID**（如 `doubao-seedream-5-0-260128`、`doubao-seedance-1-5-pro-251215`）或推理接入点 ID（`ep-xxx`）。仅传族名会直接 404 `InvalidEndpointOrModel.NotFound`。缺省且 profile 未设 default 时，按错误 hint 运行 `resources list` / `profile set-default`。 |
+| `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。模型名可按能力元数据推断；Endpoint 会读取权威绑定模型元数据，唯一模态时可省略。仅在元数据为 `unknown` / `image_or_video` 或用户要覆盖时必填 |
 | `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件 `@<path>` / 远程 `https://...` `tos://...` 都可。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`（none 显式忽略，简写 wire 上不传 role 让服务端按位置推断）；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`（这些会真正写到 wire `content[].role` 字段）。**图片任务**：折叠为 image union；**视频任务**：第 1 张图默认首帧，其它图为参考图，视频→ref_video，音频→ref_audio |
 | `--name` | 否 | string | 任务名覆盖 |
 | `--version` | 否 | string | 模型版本覆盖 |
-| `--project-name` | 否 | string | 项目名称（全局 flag） |
 | `--size` | 否 | string | 图片输出尺寸，如 `1920x1920`；像素数过小时会被后端拒绝 |
 | `--image-count` | 否 | int | 图片任务输出张数；`>1` 时自动转为 `sequential_image_generation=auto + max_images=N` |
 | `--n` | 否 | int | `--image-count` 的别名（图片任务）；两者同传时 `--n` 优先 |
@@ -122,6 +144,9 @@ arkcli +gen --model ep-20260416234150-zsd4v --modality video "一只柴犬奔跑
 | `--extra-body` | 否 | string（JSON 对象） | 视频任务 forward-compat 通道：传 JSON 对象字符串，里面的 key 会 merge 到 top-level 请求 body，让你不升级 arkcli 也能透传服务端新增字段。例：`--extra-body '{"new_field":"value"}'` |
 | `--tools` | 否 | string（可重复） | 工具开关，目前支持 `web_search` |
 | `--save-to` | 否 | string | 保存生成产物的本地目录，默认 `.`（当前目录）；传 `--save-to=""` 显式关闭自动下载。下载失败不阻塞主流程 |
+
+全局 `--dry-run` / `--profile` / `--api-key` / `--base-url` 见共享
+[`global-flags.md`](../../arkcli-shared/references/global-flags.md)。
 
 ## 返回值
 
@@ -164,6 +189,7 @@ arkcli +gen --model ep-20260416234150-zsd4v --modality video "一只柴犬奔跑
 |------|------|---------|
 | `model is required` | 未指定 `--model` | 必须指定模型名 |
 | `Error code: 404 - InvalidEndpointOrModel.NotFound` | `--model` 传的是模型族名（如 `doubao-seedream-5-0`、`doubao-seedance-1-5-pro`），该族未注册族名别名 | 用 `arkcli models get <name> --transform 'primary_version'` 拿版本号，拼成 `<name>-<primary_version>` 再传 |
+| `cannot determine generation modality` | Endpoint/模型元数据无法唯一识别 image/video，且未传 `--modality` | 先看 `resources resolve <ep>` 的 warnings；根据用户意图显式补 `--modality image|video` |
 | 缺少 prompt | 未提供位置参数 | prompt 是必填的位置参数 |
 | `image generation failed: InvalidParameter` | 图片尺寸像素数过小等参数错误；常见于 `1024x1024` 这类尺寸 | 改用 `1920x1920` 及以上尺寸，必要时加 `--debug` 看底层错误 |
 | 视频迟迟没结果 | 视频默认**异步**，返回的是 `task_id` + `status: queued`（**非失败**） | 用 `arkcli gen get <task_id>` 轮询到 `succeeded`；**不要**重提 `+gen`（会建新任务）。要同步等可用 `+gen --wait` |

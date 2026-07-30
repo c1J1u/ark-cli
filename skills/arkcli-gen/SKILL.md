@@ -1,7 +1,7 @@
 ---
 name: arkcli-gen
-version: 2.0.0
-description: "火山方舟 Ark 图片/视频生成入口：用户要生图、画图、生成图片/视频、图生图、图生视频、参考图/视频/音频生成，或明确使用 seedream/seedance 创作新内容时使用 arkcli +gen。+gen 按当前 profile 的可用资源与模型 supported_params 生成；图片同步返回，视频提交后返回 task_id/status，需用 --wait 或 arkcli gen get/list 轮询并下载结果。反触发：用户问失败原因、失败率、模型健康、持续慢/超时/限流、配额是否够、内容审核/敏感内容/PolicyViolation 拦截怎么解决时，走 arkcli-doctor 的 doctor model 或 doctor error，不走本 skill。单条视频 queued/还在跑通常是异步任务未完成，仍用 gen get/list 查结果；跨任务统计性失败或持续异常才转 doctor。"
+version: 2.1.0
+description: "火山方舟 Ark 图片/视频生成入口：支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。dry-run 复用真实模态解析但不生成、不计费、不存储。图片同步返回，视频异步轮询。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -14,12 +14,16 @@ metadata:
 
 **CRITICAL — 这是一段三步工作流，不是单条命令。生成图/视频 MUST 按 `Step 1 → Step 2 → Step 3` 顺序执行。禁止跳过 Step 1/2 直接 `+gen`：会因模型名形态不对（404）或传了模型不支持的参数而失败。执行前务必读 [`references/arkcli-gen.md`](references/arkcli-gen.md)。**
 
+**CRITICAL — 用户显式给出 API Key / Base URL / Endpoint 时，MUST 先读 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。显式 Endpoint 的权威元数据优先于当前 profile。**
+
+**火山额外约束：不要因为 active profile 是 Agent/Coding Plan 就把用户给出的 Endpoint 当套餐模型调用。**
+
 ## 为什么是工作流（核心，先理解再执行）
 
 用户说"生成一个视频/一张图"，本质是**三件独立的事，必须按序**：
 
 ```
-① 当前 profile 能用哪些模型   ── 不同 profile 模型来源完全不同(EP vs 模型名)
+① 本次资源从哪里来           ── 用户显式 Endpoint 优先；否则看当前 profile
 ② 该模型支持哪些参数          ── 不查就传参 = 瞎猜 = 被校验拒/被后端拒
 ③ 按可用参数真去生成
 ```
@@ -35,10 +39,14 @@ metadata:
 
 ## 工作流总览
 
-```
+```text
 用户意图: "生成 X"
   │
-  ▼ Step 1【强制】列当前 profile 可用模型  ──► arkcli resources list --modality image|video
+  ▼ Step 1【强制】解析本次资源
+  │     用户给 Endpoint → arkcli resources resolve <ep-id>
+  │     未给 Endpoint   → arkcli resources list --modality image|video
+  │
+  │     当前 profile 可用资源：
   │     platform    → 列 EP (ep-xxx)           ┐
   │     agent-plan  → 列视觉模型名              ├─ 选一个，记为 $MODEL
   │     coding-plan → 列 EP (借道 platform)     ┘
@@ -55,7 +63,23 @@ metadata:
         图片 = 同步：直接返回 output_url + local_path
 ```
 
-## Step 1【强制】列出当前 profile 可用的模型
+
+## Step 1【强制】解析显式 Endpoint，或列出 profile 可用资源
+
+用户已经显式给出 Endpoint 时，不要先用 active profile 的模型池覆盖它：
+
+```bash
+arkcli resources resolve "$ENDPOINT" --format json
+```
+
+- 读取 `generation_modality` 决定 image/video；`image_or_video` 或 `unknown` 时再结合
+  用户意图，必要时显式补 `--modality`。
+- 读取 `resource_region`；Endpoint + 显式 API Key 且未给 Base URL 时，CLI 用该
+  region 派生 platform Base URL。
+- 不按 Endpoint ID 或绑定模型名称里的 `seedream` / `seedance` 子串猜模态。
+- 显式 Endpoint + API Key 是临时调用，不切换 active profile，也不把值写回。
+
+用户未给显式 Endpoint 时，再按 profile 列资源：
 
 ```bash
 # 按目标模态列；输出 items[].id 就是可作 --model 的候选
@@ -70,6 +94,7 @@ arkcli resources list --modality video   # 或 image
 - **选定一个 id，记为 `$MODEL`，贯穿 Step 2/3**
 - 用户已明确给了模型/EP 时，仍建议 `resources list` 核对它在当前 profile 可用；若与默认不同，按 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md) "Default 漂移检测与 promote nudge" 处理
 
+
 ## Step 2【强制·EP 除外】查 $MODEL 的可用参数
 
 ```bash
@@ -78,7 +103,7 @@ arkcli models get "$MODEL" --transform supported_params
 
 - **`$MODEL` 是模型名**：拿到该模型的 `supported_params` 清单（每项含 `name / type / support / min / max / enum / required`）。
   - > **MUST：Step 3 只能使用这里 `support=true` 的参数，且取值必须落在 `min/max/enum` 范围内。** 不在清单里的参数（或 `support=false`）传了会被 `+gen` 拒绝。
-  - **可直接用 Step 1 `resources list` 给的 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
+  - **可直接使用 Step 1 选出的模型 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
   - 查到模型但 `supported_params` 为空 / `null`（很多模型没配，如 `doubao-seedance-2-0` / `doubao-seedance-1-5-pro`）→ **不用手动补参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
 - **`$MODEL` 是 EP（`ep-xxx`）**：跳过本步。EP 查不到 supported_params 是正常的；且 `+gen` **不会**对 EP 套兜底默认（EP 背后模型可能支持更高能力，强填会误降级），直接 degrade-open 由服务端裁决。
 
@@ -96,6 +121,8 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 ```
 
 - 参数全集、多模态 `--input` 规则、新增 `--n/--priority/--wait` 见 [`references/arkcli-gen.md`](references/arkcli-gen.md)
+- Endpoint 的模态由 Step 1 权威元数据自动解析；仅在元数据为 `unknown` /
+  `image_or_video` 且用户意图仍不足时要求显式 `--modality`。
 - **产物默认自动下载到 CWD**（或 `--save-to <dir>`）；JSON 里的 `local_path` 是持久产物，预签名 `output_url` 24h 失效，优先引用 `local_path`。`--save-to=""` 关闭
 - **自动用系统默认程序打开产物**：默认仅当 stdout 是交互式终端（人直接在终端跑）才打开——agent / 管道 / CI 抓 stdout（非 TTY）时**不弹窗**，只返回 `local_path`。`--open` 强制打开、`--no-open` 强制不打开。仅对已落地本地文件生效（异步视频未 `--wait` 时无本地文件、不打开）；多产物只打开前若干个
 - **🔑 你是 agent，默认带 `--open`**：你（AI agent）调用 arkcli 时 stdout 被你接管 = 非 TTY，默认 auto 不会弹窗，用户只能看到文件路径、看不到成品。**为了让用户直接看到生成的图/视频，凡是给真人出图/出视频的 `+gen` 与轮询到 `succeeded` 的 `gen get`，默认都加 `--open`**（`--open` 无视 TTY 强制在用户桌面打开）。例外只在：用户明确说"别打开/在脚本里/批量/不要弹窗"，或一次出图 >4 张批量场景 → 这时省略 `--open` 或显式 `--no-open`。
@@ -113,7 +140,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 ## 快速决策
 
 - 用户要一步到位出图/视频 → 走本工作流（Step 1→2→3）
-- 用户还没定模型 → Step 1 `resources list` 列候选；模型族不确定 → 转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)
+- 用户还没定模型 → Step 1 `resources list` 列当前 profile 候选；模型族不确定 → 转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)
 - 图生图 / 参考素材 → Step 3 加 `--input @<file>`（可重复）
 - 视频生成后"没看到视频" → 多半是异步 `queued`，用 `arkcli gen get <task_id> --open` 轮询；轮到 `succeeded` 那次会自动下载到本地（看返回的 `local_path`）并弹出成品，别重提
 - **给真人出图/视频默认加 `--open`** → 你是 agent（非 TTY），不加用户只能看到路径、看不到成品；只有"别打开/脚本里/批量 >4 张"才省略或 `--no-open`
@@ -124,7 +151,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 |---|---|
 | "生成完直接打开/帮我打开看看/出来就弹给我" | `arkcli +gen --open`（强制用系统默认程序打开；默认在交互终端已自动打开） |
 | "别自动打开/不要弹窗/我在脚本里跑别开" | `arkcli +gen --no-open`（强制不打开） |
-| "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen --dry-run`（不会真正生成） |
+| "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen --dry-run`（可只读解析 Endpoint；不会真正生成、计费或存储） |
 | "强制执行/跳过校验/我知道不支持但想试一下" | `arkcli +gen --force` |
 | "连贯多张/按顺序/统一风格/4格漫画/连续图片" | `arkcli +gen --sequential` |
 | "我之前的任务/生成历史/任务列表/任务状态" | `arkcli gen list`（列出所有异步生成任务） |
@@ -135,6 +162,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 | 命令 | 角色 |
 |------|------|
 | `arkcli resources list --modality image\|video` | **Step 1** — 当前 profile 可用模型/EP |
+| `arkcli resources resolve <endpoint-id>` | **Step 1（显式 EP）** — 权威解析模态、工作流与 region |
 | [`arkcli models get <model> --transform supported_params`](../arkcli-models/SKILL.md) | **Step 2** — 查模型可用参数 |
 | [`arkcli +gen`](references/arkcli-gen.md) | **Step 3** — 按可用参数生成 |
 | [`arkcli +gen --stream`](references/image-stream.md) | 图片任务流式 NDJSON 输出 |

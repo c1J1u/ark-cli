@@ -70,8 +70,9 @@ arkcli auth login --no-browser [--code X]
   - 把这段 base64 串粘贴回 CLI 提示符 `授权码:` 处即可
 - 登录成功后凭证写入 identity store，并绑定或切换到对应 tenant 的 profile（同 tenant 重登更新当前 profile 的 identity_key；跨 tenant 登录创建以 tenant 命名的新 profile 并设为 default）
 - 如需手动重新拉取或切换 ARK API Key，运行 `arkcli auth apikey`
-- SSO 首次登录会自动拉取 API Key 和 Project Name
-- 临时覆盖 project：`--project-name <name>` 或 `export ARK_PROJECT_NAME=<name>`
+- SSO 首次登录会自动拉取 API Key，并把选中的 Project 写入对应 profile
+- 临时选择另一套已存在的上下文使用 `--profile <name>`；永久切换使用 `arkcli profile use <name>`
+- 需要重选 Project 时使用 `arkcli profile project [<name>]`。根命令不再提供 `--project-name`，`ARK_PROJECT_NAME` 也不参与运行时解析
 
 ## volcengine-cli 登录态借用 (v3, 1.0.4 起, 仅火山 SSO 交互式登录)
 

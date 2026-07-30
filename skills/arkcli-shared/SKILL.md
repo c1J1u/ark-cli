@@ -1,7 +1,7 @@
 ---
 name: arkcli-shared
-version: 2.0.1
-description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
+version: 2.0.2
+description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -20,6 +20,7 @@ metadata:
 > | AK/SK 态能调什么 / 数据面 API Key 报错恢复 | [`../arkcli-auth/references/auth-modes.md`](../arkcli-auth/references/auth-modes.md) |
 > | 开通 / 部署 / 精调前的实名检查 | [`../arkcli-auth/references/realname-gate.md`](../arkcli-auth/references/realname-gate.md) |
 > | `+chat`/`+gen`/`+deploy` 的默认资源与漂移 nudge | [`references/profile-defaults.md`](references/profile-defaults.md) |
+> | 临时传入 Profile / API Key / Base URL / Endpoint / 模型名 | [`references/execution-context.md`](references/execution-context.md) |
 > | 全局 flags 速查 | [`references/global-flags.md`](references/global-flags.md) |
 > | 报错不知归类 / 故障分流 | [`references/troubleshooting.md`](references/troubleshooting.md) |
 
@@ -68,7 +69,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 
 | 用户目标 | 路径 | 关键点 |
 |---|---|---|
-| 试用模型 / 快速验证效果 | `auth` → `models`（可选）→ [`+chat`](../arkcli-chat/SKILL.md) / [`+gen`](../arkcli-gen/SKILL.md) | **不需要** Endpoint |
+| 试用模型 / 快速验证效果 | `auth` → `resources` / `models`（可选）→ [`+chat`](../arkcli-chat/SKILL.md) / [`+gen`](../arkcli-gen/SKILL.md) | Plan lane 用模型名；Platform lane 用 Endpoint |
 | 专项多模态理解（转写/抽取/字幕/框目标…） | `auth` → [`+understand`](../arkcli-understand/SKILL.md) | 有明确产出形态时走 understand，不是 chat |
 | 语音模型发现 / 选型（TTS / ASR / 播客 / 音色 / 实时语音交互） | `auth` → [`models search`](../arkcli-models/SKILL.md) | **仅支持广场检索**；不支持 `+chat` / `+gen` / `+deploy` / `+code-example` / `usage` / `pricing` / `onboard` |
 | 正式接入 / 稳定调用 | `auth` → `models` → [`infer endpoint list`](../arkcli-infer-endpoint/SKILL.md) → 没有就 [`+deploy`](../arkcli-deploy/SKILL.md) | 核心资源是 Endpoint，不是 +chat/+gen |
@@ -138,10 +139,10 @@ arkcli profile use <name>                                    # 切换默认 prof
 - 不要在未检查认证状态前连续重试业务命令
 - 不要把中间步骤当最终结果；登录、查模型、切 profile 完成后应回到用户原始任务
 - 不要在业务 skill 里重复共享规则；共享规则统一以本 skill（及其 references）为准
-- 不要把"试用模型"误写成"需要先创建 Endpoint"（试用走 `+chat`/`+gen`）；也不要把"正式接入"误导到一次性试用命令（正式接入走 `+deploy`）
+- 不要一概声称“试用不需要 Endpoint”：Plan lane 使用模型名，Platform lane 必须使用 Endpoint。按 [`references/execution-context.md`](references/execution-context.md) 判断；正式接入仍走 `+deploy`
 - 不要把广场可搜到的语音模型误写成 arkcli 已支持调用、部署、示例、用量或费用查询；语音模型在 arkcli 当前只承认 `models search` 发现能力。
 - 不要把语音模型边界回答扩展成"去控制台开通 / 用 OpenAPI / 用 SDK 接入"的替代方案；当前 skill 只负责说明 arkcli 支持边界。
-- 不要为单个业务命令加 `--project` / `--project-name`；Project Name 只有全局 `--project-name` 一个入口，持久化优先走 `arkcli profile create --project <name>`，不要写进 `.env` / 老 `config.json`
+- 不要给业务命令增加临时 Project/Region override；根命令已删除 `--project-name` 与 `--region`。持久上下文通过 `arkcli profile create/use` 管理，单次切换使用 `--profile`。
 
 ## 参考
 
@@ -149,5 +150,6 @@ arkcli profile use <name>                                    # 切换默认 prof
 - [arkcli-config](../arkcli-config/SKILL.md) — profile、base-url、region 配置排障
 - [arkcli-api-explorer](../arkcli-api-explorer/SKILL.md) — 产品命令未覆盖时的 raw API 兜底入口
 - [references/profile-defaults.md](references/profile-defaults.md) — profile 默认资源、漂移检测、跨模态
+- [references/execution-context.md](references/execution-context.md) — 五类 Profile × 三种模态、临时 Key/Base URL/Endpoint 组合与 dry-run 边界
 - [references/global-flags.md](references/global-flags.md) — 常用全局 flags 速查
 - [references/troubleshooting.md](references/troubleshooting.md) — 故障分流与能力边界

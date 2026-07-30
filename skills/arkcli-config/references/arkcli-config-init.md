@@ -32,8 +32,9 @@ arkcli config init --profile default --access-key <ak> --secret-key <sk> --forma
 
 ## Profile schema v1 (0.1.16+) 改动
 
-- **Project Name 在 0.1.16 起进 profile 切面**：`arkcli profile create --project X` 会把 `Project: X` 写入 `config.yaml` 当前 profile，作为可配置切面的一部分；老 yaml 反序列化为零值，运行时仍走 .env 兜底，向前兼容
-- Project Name 解析优先级：`--project-name` flag > `ARK_PROJECT_NAME` 环境变量 > active profile `Project` 字段（0.1.16 新增）> `~/.arkcli/.env`（火山 `VOLCENGINE_ARK_PROJECT_NAME`，由 SSO 登录 / `arkcli auth apikey` 自动写入）> `default` 兜底；详见 [`../../arkcli-auth/SKILL.md`](../../arkcli-auth/SKILL.md)
+- **Project Name 在 0.1.16 起进 profile 切面**：`arkcli profile create --project X` 会把 `Project: X` 写入 `config.yaml` 当前 profile。
+- 根命令已删除 `--project-name`，`ARK_PROJECT_NAME` 也不再覆盖运行时。解析顺序为 active profile `Project` > identity store / 火山 `.env` 旧状态兼容 > `default`。
+- Region 同样由 Profile 持有；根命令已删除 `--region`，`ARK_REGION` 不再覆盖运行时。
 
 ## 推荐迁移到 `arkcli profile create`
 

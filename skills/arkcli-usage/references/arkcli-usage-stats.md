@@ -35,8 +35,8 @@ arkcli usage stats --start 2025-09-01 --end 2025-09-30 --by model,endpoint
 # 按 API Key 过滤
 arkcli usage stats --start 2025-09-01 --end 2025-09-30 --apikey ak-xxxxxxxx
 
-# 子用户按项目查询
-arkcli usage stats --start 2025-09-01 --end 2025-09-30 --project-name my-project
+# 使用绑定目标 Project 的 profile 查询
+arkcli --profile my-project-profile usage stats --start 2025-09-01 --end 2025-09-30
 
 # 显示按计费窗口拆分的明细（每条记录附带所属计费窗口）
 arkcli usage stats --start 2025-09-01 --end 2025-09-30 --show-window-detail
@@ -62,7 +62,6 @@ arkcli usage stats --start <YYYY-MM-DD> --apikey-suffix d9bcce38dab0
 | `--start` | **是** | string | 开始日期，YYYY-MM-DD 格式 |
 | `--end` | 否 | string | 结束日期，YYYY-MM-DD 格式（与开始日期间隔不超过 31 天），默认当日 |
 | `--interval` | 否 | string | 查询粒度：`Day`（默认）或 `Hour` |
-| `--project-name` | 否 | string | 项目名称（仅有项目级权限的子用户必填；全局 flag，非 usage 专属） |
 | `--endpoint` | 否 | string | 按接入点 ID 过滤 |
 | `--model` | 否 | string | 按模型名称过滤，输出中附加 `ModelName`、`ModelUnitID` 列 |
 | `--apikey` | 否 | string | 按 API Key 完整值过滤（Values 精确匹配，兼容旧用法） |

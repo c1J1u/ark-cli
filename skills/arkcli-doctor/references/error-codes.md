@@ -347,7 +347,7 @@ arkcli +gen --model <原模型> --input @<更安全的素材> "<去掉会被放�
 调用方拿不到这个模型——HTTP 403 / 404，常见三种：
 
 - **模型未在你账号下开通**（`ModelNotOpen`）：付费模型（如生视频 seedance 系列）需要在控制台显式开通；首次使用必踩一次。最常见。
-- **子账号缺 ARKFullAccess**（`AccessDenied` / `OperationDenied.PermissionDenied`）：账号已开通该模型，但当前 AK/SK 对应的子账号没挂 Ark 系统策略。
+- **子账号缺 ArkFullAccess**（`AccessDenied` / `OperationDenied.PermissionDenied`）：账号已开通该模型，但当前 AK/SK 对应的子账号没挂 Ark 系统策略。
 - **模型版本与 endpoint 配置不一致**：endpoint 绑了一个旧版本，新流量调用时新版本没续开通；或 endpoint 的模型字段被改过没保存对。
 
 > 先用 `arkcli doctor infer-endpoint <ep-id>` 输出里的 `endpoint.model_info` 和 `endpoint.errors.overall.by_error_code` 一起看，多数能直接定位。
@@ -357,9 +357,9 @@ arkcli +gen --model <原模型> --input @<更安全的素材> "<去掉会被放�
 ```
 当前调用方是子账号还是主账号?（看 doctor account 的 identity 段）
  ├─ 子账号
- │   └─ 主账号下 doctor account 看 ARKFullAccess 是否挂 → 没挂就先挂
+ │   └─ 主账号下 doctor account 看 ArkFullAccess 是否挂 → 没挂就先挂
  │      挂了仍报 → 看下一支
- └─ 主账号 / 子账号已挂 ARKFullAccess
+ └─ 主账号 / 子账号已挂 ArkFullAccess
       └─ 控制台 → 模型广场 → 找对应模型 → 是否显示"已开通"?
            ├─ 未开通 ──► 修复 A
            └─ 已开通 ──► 检查 endpoint 绑定的模型 + 版本是否与开通的一致 → 修复 C
@@ -376,14 +376,14 @@ arkcli +gen --model <原模型> --input @<更安全的素材> "<去掉会被放�
 
 > doctor 不替你点开通——这涉及计费授权与合同，必须用户 / 管理员显式确认。
 
-**修复 B —— 子账号挂 ARKFullAccess**（`AccessDenied` / `OperationDenied.PermissionDenied`）：
+**修复 B —— 子账号挂 ArkFullAccess**（`AccessDenied` / `OperationDenied.PermissionDenied`）：
 
 让主账号或有 IAM 写权限的人：
 
 1. 打开 `https://console.volcengine.com/iam/policymanage?PolicyType=System&Service=ark`
-2. 找到 `ARKFullAccess`（写）或 `ARKReadOnlyAccess`（只读，仅查询场景）
+2. 找到 `ArkFullAccess`（写）或 `ArkReadOnlyAccess`（只读，仅查询场景）
 3. 挂载到目标子账号
-4. 验证：`arkcli doctor account` 的 `account.iam_system_policies` 应 ✓
+4. 验证：`arkcli doctor account` 的 `permissions.iam_system_policies.authorized` 应 ✓
 
 **修复 C —— endpoint 模型版本对齐**（已开通但 endpoint 调旧 / 错版本时）：
 

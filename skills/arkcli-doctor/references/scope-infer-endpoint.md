@@ -32,8 +32,6 @@ arkcli doctor infer-endpoint ep-xxx
 arkcli doctor infer-endpoint ep-xxx --window 1h
 # JSON 输出：
 arkcli doctor infer-endpoint ep-xxx --format json
-# 触发 fixer（必先 dry-run）：
-arkcli doctor infer-endpoint ep-xxx --fix --dry-run
 ```
 
 > 调用决策树（doctor 内部，了解即可）：
@@ -119,7 +117,7 @@ doctor 默认输出的是**聚合统计值**（一个数概括一段时间，如
 
 但底层数据来自 VMP 的 Prometheus 时序流，必要时可以拿**原始时序**（按 `step` 取点，通常 1min 粒度）做更深的分析。聚合是平均，**会平均掉突发与抖动**——单凭聚合值无法回答"是不是某一刻爆发的"。
 
-> **怎么拿原始时序**：用 `--series` flag（实际 flag 名以 doctor 实现定稿为准；语义上是"返回时间序列而非聚合点"）。返回的 JSON 在 `series.<metric>[]` 字段里，每条 `{ts, value, labels}`。
+> **原始时序边界**：当前 `doctor infer-endpoint` 只返回聚合结果，不提供原始时序切换参数。用户确实需要按时间点分析时，转到 [`scope-metrics.md`](scope-metrics.md) 核对具名查询或 raw 查询能力；不要承诺本命令会返回 `series.<metric>[]`。
 
 ### 决策规则
 
@@ -181,7 +179,7 @@ doctor 默认输出的是**聚合统计值**（一个数概括一段时间，如
 ## 安全与边界
 
 - **只读优先**：`arkcli doctor infer-endpoint` 默认只读，不消耗推理 token、不重新发请求。
-- **`--fix` 大多是 A 型**：当前注册的几乎都是 skill-driven fixer（如 `fix-model-access-grant` 引导用户控制台开通），doctor 进程不直接调 IAM / 改控制面。
+- **修复路径由输出与 reference 给出**：例如模型权限开通引导；doctor 进程不直接调 IAM / 改控制面。
 - **越权边界**：只读用户 AK/SK 能拿到的 Ark API + VMP 数据；不读平台内部 trace/调度数据。
 
 ## 何时 _不_ 用本 reference
@@ -192,10 +190,25 @@ doctor 默认输出的是**聚合统计值**（一个数概括一段时间，如
 - 账号级问题（实名 / 欠费 / IAM 策略 / VMP 三段）→ `arkcli doctor account` + [`../../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md)
 - 想看用量明细（不带"为什么/异常"判断）→ [`../../arkcli-usage/SKILL.md`](../../arkcli-usage/SKILL.md)
 
+## Seedance 2.x 效果问题上报路由
+
+用户只描述某个 Seedance 2.x 接入点的效果问题，或**同时要求检查 / 诊断 / 排查 / 分析原因和上报**时，必须先完整执行本 `doctor infer-endpoint` 诊断，不能直接转 `doctor report`。诊断意图优先于上报意图；只有不含任何诊断诉求的纯上报请求才可能走 `scope-report.md` 的 Path B。诊断输出里的 `report_suggestion.model_supported=true` 只表明 endpoint 关联的 foundation model 落在客户端已知的 seedance 2.x 家族前缀内（`doubao-seedance-2-*`），是**诊断后的发现提示**；家族内该具体版本是否受理、以及 task 的存在性 / 归属 / 完成状态 / 重复提交都由服务端校验（见 `reason` 字段）。是否询问用户由 agent 二次判定，按下面这张分流表来：
+
+| 用户诉求 / 诊断信号                                                             | 是否属于"效果类" | agent 行为                                                       |
+|--------------------------------------------------------------------------------|------------------|------------------------------------------------------------------|
+| 角色 ID 漂移 / 字幕拼写错 / 水印 / 风格漂移 / 闪烁 / 拼接跳变 / 角色重复 / 音频尾部杂音 / 中文发音错 / 音色参考错 | ✅ 效果类        | **完成本次诊断后**一句话意向探询；用户明确同意才参数收集并跑 report |
+| task expired / 429 / ModelAccessDenied / ContentRiskBlocked / endpoint 状态异常 / 错误率高 / 配额压力高 | ❌ 错误码 / 运行类 | **不要**提上报，按错误码分布 / [`error-codes.md`](error-codes.md) 处理 |
+| 用户只说"看看 ep-xxx"没描述具体现象                                             | 未知             | **不要**主动提上报，先看诊断输出再决定要不要追问                     |
+
+判定原则：**上报接口只处理"生成成功但效果差"的 case**——服务端 case-platform 会异步拉视频 / 输入帧做效果分析，对失败或不受支持模型的 task 会拒绝。所以诊断建议依赖**用户原始诉求 + doctor 输出的 error_rate / errors 分布**，而不是 `model_supported` 一个 bool；错误码路径与 badcase 路径互斥。
+
+**分工原则**：Agent 层做**一句话意向探询 + 参数收集**（不做仪式感的重复确认），CLI 层弹**结构化 prompt** 做唯一决定性确认。**不要**替用户擅自发起上报，也不要伪造 task_id。上报流程、命令细节、11 个 badcase_type 枚举都在 [`scope-report.md`](scope-report.md)。
+
 ## 参考
 
 - [`../SKILL.md`](../SKILL.md) — 总入口与路径决策
 - [`error-codes.md`](error-codes.md) — 错误码总册（含 §1.2 ModelAccessDenied / §1.3 RateLimitExceeded / §1.1 生视频）
 - [`scope-model.md`](scope-model.md) — 单模型诊断（联动看跨接入点）
+- [`scope-report.md`](scope-report.md) — seedance 2.x 效果问题上报（badcase report）
 - [`../../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) — 共享执行协议
 - [`../../arkcli-infer-endpoint/SKILL.md`](../../arkcli-infer-endpoint/SKILL.md) — endpoint CRUD（doctor 不重复实现）

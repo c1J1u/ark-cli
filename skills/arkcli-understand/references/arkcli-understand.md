@@ -74,7 +74,20 @@ arkcli +understand asr --input @speech.mp3 --format json
 
 \* 至少要有 sub-skill 名或可路由的 `--input`，否则 `missing_sub_skill`。
 
-全局 flag（`--profile` / `--api-key` / `--project-name` / `--region` / `--format json` / `--transform` / `--debug` 等）见 [`../../arkcli-shared/references/global-flags.md`](../../arkcli-shared/references/global-flags.md)。
+全局 flag（`--profile` / `--api-key` / `--base-url` / `--format json` / `--transform` / `--debug` 等）见 [`../../arkcli-shared/references/global-flags.md`](../../arkcli-shared/references/global-flags.md)。`+understand` 属于数据面命令；临时连接按下述非对称组合规则处理。
+
+更精确的临时连接规则：
+
+- 显式 Base URL 必须有显式 API Key。
+- Endpoint + API Key 可以省略 Base URL；CLI 从 Endpoint 权威 region 派生。
+- API Key + Base URL + Endpoint 为 stateless 单次调用，不修改 profile。
+- 只有 API Key + 模型名时，必须能唯一匹配本地 profile；否则要求补
+  Base URL/Endpoint，不能从 Key 文本猜数据面。
+- `--dry-run` 复用同一配方、输入与执行上下文解析，但不调用 Responses API、
+  不产生 token 用量、不存储 response；需要识别 Endpoint 时允许只读控制面查询。
+
+完整决策见
+[`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。
 
 ## System prompt 解析链
 

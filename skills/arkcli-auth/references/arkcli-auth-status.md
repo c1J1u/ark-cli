@@ -24,12 +24,12 @@ arkcli auth status
 ## Project Name 排障
 
 - 如果 `project_name` 不是预期值：
-  1. 优先看是否被 `--project-name` flag 或 `ARK_PROJECT_NAME` 环境变量临时覆盖
-  2. 其次看 active profile.yaml 的 `profile.project` 字段 (0.1.16 起持久化路径; `arkcli profile create --project <name>` 写入, cfg 装配映射到 `cfg.ProjectName`)
-  3. 再看 identity store apikey 关联的 project (SSO 登录 / `auth apikey` 选 key 时写入)
-  4. 最后看 `.env` (老用户兼容路径)
-  5. 都不设置时，火山默认值为 `"default"`
-- 想把 Project Name 固定为某个值：优先 `arkcli profile create --project <name>` 走 profile.yaml; 临时覆盖 `export ARK_PROJECT_NAME=<name>` 或 `arkcli auth apikey` 选中对应项目下的 Key
+  1. 先确认本次命令由 `--profile` / `ARK_PROFILE` / `default_profile` 选中了哪个 profile
+  2. 再看该 profile 的 `project` 字段（`arkcli profile create --project <name>` 或 `arkcli profile project [<name>]` 写入）
+  3. 老 profile 没有 `project` 时，再检查 identity store / `.env` 中由 SSO 或 `auth apikey` 留下的兼容值
+  4. 都不设置时，火山默认值为 `"default"`
+- 想固定 Project：使用 `arkcli profile project [<name>]`，或创建/切换到绑定该 Project 的 profile。只想让单次命令使用另一套上下文时传 `--profile <name>`
+- 根命令不再提供 `--project-name`，`ARK_PROJECT_NAME` 也不参与运行时解析
 - 老 `arkcli config init --project-name ...` 已废弃, 不应再建议
 
 ## 退出登录

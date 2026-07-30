@@ -169,7 +169,7 @@ Fixer 分两型（优先 A 型）：
 4. **B 型**：实现完整 `DryRun()` + `Apply()`，`Reversibility` 标得准确（默认拒绝 `Destructive`）。
 5. 加单元测试覆盖 dry-run / apply / reversibility 三档。
 
-> **硬约束：用户二次确认**。无论 A/B 型，`--fix` 默认走 dry-run 给用户看，必须显式 `--apply`（或交互确认）才真正改。
+> **硬约束：用户二次确认**。当前 doctor 诊断命令只输出修复建议，不提供通用的自动修复入口。A 型 fixer 只能路由到 reference；B 型能力只有在真实命令完成注册、dry-run、确认门和测试后才能写入 Skill，不能先写一个尚不存在的调用方式。
 
 ---
 
@@ -194,7 +194,7 @@ arkcli doctor <scope> [<id>]            # 加了 check / fixer 时
 
 ## 硬约束（别破）
 
-- **doctor 只读、不 mutate**（除显式 `--fix --apply`）：诊断本身不重新生成、不改资源、不烧推理 token。
+- **doctor 诊断只读、不 mutate**：诊断本身不重新生成、不改资源、不烧推理 token；`doctor report` 是独立写操作，按自身的 dry-run 与数据外发确认门执行。
 - **缺口要诚实**：依赖未上线能力（如 `deface` / `request_id 反查`）一律用 `needsBackend` / 文档明示，Hint 里不许假装能一键修。
 - **subtype / category 是 wire 稳定标识**：改名 / 删除属 breaking change；新增不算。
 - **修复用原生命令**：doctor 不自带 +gen / +chat 引擎，修复命令一律是 `arkcli <existing-command> …`，跨界细节归对应 owning skill（[`arkcli-gen`](../arkcli-gen/SKILL.md) / [`arkcli-deploy`](../arkcli-deploy/SKILL.md) / [`arkcli-infer-endpoint`](../arkcli-infer-endpoint/SKILL.md) 等）。

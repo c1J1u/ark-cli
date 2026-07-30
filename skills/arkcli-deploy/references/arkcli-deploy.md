@@ -32,8 +32,8 @@ arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215 \
 arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215 \
   --intelligent-router '{"Strategy": "Balanced", "Mode": "Automatic"}'
 
-# 指定项目
-arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215 --project-name my-project
+# 使用另一套已存在的项目上下文
+arkcli --profile my-project-profile +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215
 
 # 自定义模型：若已有 Running Endpoint 会直接复用，否则创建
 arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
@@ -53,7 +53,6 @@ arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `--description` | string | 接入点描述 |
-| `--project-name` | string | 项目名称 |
 | `--rate-limit` | JSON string | 速率限制，如 `{"Rpm": 60, "Tpm": 10000, "Ipm": 100}` |
 | `--moderation` | JSON string | 审核配置。Strategy: `Basic` / `Customized` / `Default` / `Skip` |
 | `--dry-run` | bool | 试运行模式，不实际创建 |

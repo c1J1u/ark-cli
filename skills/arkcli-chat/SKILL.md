@@ -1,7 +1,7 @@
 ---
 name: arkcli-chat
-version: 1.1.0
-description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态（@file 本地图片、视频、音频、通用文件）、流式输出、system instructions、采样调节（temperature/top-p/max-output-tokens）、reasoning effort 调节、--store + previous-response-id 多轮接续。当用户需要与模型即时对话、问答、推理、做带图/视频/音频的开放式多模态对话与追问、调温度/采样、控制思考强度、或多轮接续对话时使用。注意：有明确产出形态的多模态理解（语音转写、文档字段抽取、字幕打轴、bbox 框选定位、视频分章节总结等）走 arkcli-understand；本 skill 只做开放式对话/推理。"
+version: 1.2.0
+description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；有明确产出形态的多模态理解走 arkcli-understand。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -15,7 +15,7 @@ metadata:
 
 ## 核心概念
 
-- `--model` 缺省时 CLI 自动 fallback 到 active profile 的 `resources.text.default`；如果用户显式传 `--model X` 且 `X` ≠ 该默认，按 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md) "Default 漂移检测与 promote nudge" 询问用户是否 promote
+- `--model` 缺省时 CLI 自动 fallback 到 active profile 的 `resources.text.default`；用户显式传入不同值时按 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md) 做漂移提示。
 - `+chat` 是数据面 Responses API（`POST /responses`）的高层封装：一次请求即返回助手文本。
 - 支持**多模态**：用 `--input @photo.jpg` 把本地文件随请求上传，模型可看图/看视频/听音频后回答。图片(`.jpg/.png/.webp/...`)、视频(`.mp4/.mov/...`)、音频(`.mp3/.wav/.m4a/...`)、通用文件按扩展名自动分流。
 - 支持**流式**：`--stream` 模式逐段输出，先输出推理（thinking），再输出正式回答（response）。
@@ -29,6 +29,8 @@ metadata:
 - 支持**缓存与思考**：`--caching enabled|disabled`（配 `--cache-prefix`）控制服务端 prompt cache；`--thinking auto|enabled|disabled` 控制思考阶段；`--expire-at <epoch_sec>` 给 stored response 加过期。详见 [`references/caching-thinking.md`](references/caching-thinking.md)。
 - 支持**流式事件**：`--stream --include-events` 输出原始 SDK 事件 NDJSON（每行一个 JSON），供 autotest / agent 程序化消费。详见 [`references/stream-events.md`](references/stream-events.md)。
 - **输出 schema（务必先看）**：`+chat` 返回是 arkcli **扁平** schema（`{id, model, content, reasoning_content, usage, ...}`），**不是** Responses API 原生 `output[].content[].text` 嵌套；助手文本直接用 `.content` 取。`--format` 不会切换 shape。详见 [`references/arkcli-chat.md`](references/arkcli-chat.md) 的「返回值」段。
+- 用户临时提供 `--api-key` / `--base-url` / Endpoint 时，MUST 读取 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。不要从 Key 文本猜套餐类型，也不要把临时值写入 profile。
+- `--dry-run` 只构造请求摘要与无 secret 的 `execution_context`，不会调用 Responses API、产生 token 用量或存储 response。
 
 ## 快速决策
 
@@ -53,16 +55,18 @@ metadata:
 
 ## Agent 快速执行顺序
 
-1. 用户目标是对话/推理/多模态理解时，优先用 `arkcli +chat`。
-2. 不确定认证状态时，先看 `arkcli auth status`；未登录/无 API Key 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)。
-3. 不确定模型名时，先转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。
-4. **`--model` 必须是 `<name>-<primary_version>` 完整形式**（或 Endpoint ID `ep-xxx`）。`primary_version` 格式不固定：6 位日期、8 位日期、带限定前缀、短数字、甚至空串都有（详见 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 链路 0 的完整表格）——**不要用正则自行猜测"看起来是否完整"**。若用户只给了族名或不确定是否完整，先查 `primary_version` 再拼：刚 `models search/list` 过就直接复用返回里的字段，否则 `arkcli models get <name> --transform 'primary_version' | tr -d '"'`（`--transform` 输出带引号，必须剥掉）。跳过会直接 404 `InvalidEndpointOrModel.NotFound`。
-5. 需要流式输出时加 `--stream`；需要多模态时加 `--input @<file>`（可多次）。
+1. 用户只给 `ep-...` 且任务不明确 → `arkcli resources resolve <ep-id> --format json`；开放问答/追问才选择 `+chat`。
+2. 用户给了临时 Key/Base URL/Endpoint → 按共享 execution-context 组合规则决定参数，不先切 profile。
+3. 不确定认证状态且没有完整 stateless 上下文时，先看 `arkcli auth status`；未登录/无 API Key 转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)。
+4. 不确定模型名时，先转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。
+5. **`--model` 必须是 `<name>-<primary_version>` 完整形式**（或 Endpoint ID `ep-xxx`）。`primary_version` 格式不固定：6 位日期、8 位日期、带限定前缀、短数字、甚至空串都有（详见 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 链路 0 的完整表格）——**不要用正则自行猜测"看起来是否完整"**。若用户只给了族名或不确定是否完整，先查 `primary_version` 再拼：刚 `models search/list` 过就直接复用返回里的字段，否则 `arkcli models get <name> --transform 'primary_version' | tr -d '"'`（`--transform` 输出带引号，必须剥掉）。跳过会直接 404 `InvalidEndpointOrModel.NotFound`。
+6. 需要流式输出时加 `--stream`；需要多模态时加 `--input @<file>`（可多次）。
 
 ## 常见降级
 
 - 模型名不确定：先 `models search`。
 - endpoint ID 要用 `+chat`：直接传 `--model ep-xxx`（endpoint 本身已决定模态，无需额外 flag）。
+- Endpoint + 显式 API Key、未给 Base URL：CLI 会读取 Endpoint region 后派生 Base URL；无法取得权威 region 时再要求用户补 `--base-url`。
 - 鉴权失败：转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)。
 
 ## 命令一览
@@ -87,6 +91,7 @@ metadata:
 | `arkcli +chat --model <id> --text-format json_object "<prompt>"` | 强制模型出合法 JSON |
 | `arkcli +chat --model <id> --text-format json_schema --text-schema schema.json --text-strict "<prompt>"` | 用 JSON Schema 强约束 shape |
 | `arkcli +chat --model <id> --stream --include-events "<prompt>"` | 流式 NDJSON（每行一个 SDK 事件 JSON） |
+| `arkcli +chat --model <id> --dry-run "<prompt>"` | 无副作用预演；不调用 Responses API |
 
 ## 详细文档
 

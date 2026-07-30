@@ -1,7 +1,7 @@
 ---
 name: arkcli-understand
-version: 1.0.0
-description: "arkcli +understand：多模态理解工作流，通过 12 个任务型 sub-skill（4 模态：image/video/audio/file）在数据面 Responses API 引擎上做专项理解。覆盖图片描述/OCR、视觉定位（bbox grounding）、GUI 操作识别、PDF/文档字段抽取、视频总结/视频问答、音视频联合理解、语音转写（ASR）、语音翻译（AST）、SRT 字幕打轴、多说话人转写、会议纪要。每个 sub-skill 自带专家 system prompt 与默认模型。当用户要『转写这段录音 / 把图里目标框出来 / 抽取这份 PDF 的字段 / 总结这段视频 / 生成字幕 / 识别会议纪要 / 描述这张图』这类有明确产出形态的多模态理解任务时使用；开放式带图对话用 +chat，生成图/视频用 +gen。"
+version: 1.1.0
+description: "arkcli +understand：基于 Responses API 的 12 个多模态专项理解配方，支持临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。用户只给 Endpoint 时先用 resources resolve；转写、抽取、字幕、定位等明确产出走本 skill，开放式对话走 +chat，生成走 +gen。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -22,6 +22,8 @@ metadata:
 - **必须有 `--input`**：sub-skill 是「对某个文件做理解」，没有 `--input` 会直接 `missing_input` 报错。纯 prompt 无法推导配方。
 - 返回值与 `+chat` 完全一致：arkcli **扁平** schema `{id, model, content, reasoning_content, usage}`，**不是** Responses 原生 `output[].content[].text` 嵌套。详见 [`references/arkcli-understand.md`](references/arkcli-understand.md) 的「返回值」段。
 - 多模态上传：image/video/doc 由 SDK `file://` preprocessor 自动走 Files API；**audio 是特例**——内联为 base64 data URL，**上限 25MB**。详见 reference。
+- 用户临时提供 `--api-key` / `--base-url` / Endpoint 时，MUST 读取 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。不要根据 Key 文本或 Endpoint 名称猜数据面/工作流。
+- `--dry-run` 复用真实执行的配方与上下文解析，但绝不调用 Responses API、产生 token 用量或存储 response。
 
 ## 快速决策（understand vs chat vs gen）
 
@@ -36,11 +38,13 @@ metadata:
 ## Agent 快速执行顺序
 
 1. 判断用户的理解任务命中哪个 sub-skill（见下表）。命中就显式带上 sub-skill 名，不要让它走自动路由去猜。
-2. 过认证闸门：不确定登录态先 `arkcli auth status`；数据面调用靠 ARK API Key（`Authorization: Bearer`），鉴权失败按 [`../arkcli-auth/references/auth-modes.md`](../arkcli-auth/references/auth-modes.md) 的「API Key 模式的错误恢复」走 `arkcli auth apikey`，**不要原地重试**。
-3. 备好输入：`--input @<file>`（可多次）。本地文件用 `@` 前缀；远程用 `https://` / `tos://` URL。
-4. **默认不传 `--model`**：每个 sub-skill 自带已验证可用的默认模型（见下表）。只有在用户明确要换模型时才传 `--model`，且必须是完整版本化 ID（`<name>-<primary_version>`）或 `ep-xxx`——拿不准先转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 补版本号。
-5. 需要逐段输出加 `--stream`；想微调任务指令用 `--system-prompt-append "..."`（追加），或 `--system-prompt-override "..."`（整体替换内置 prompt）。
-6. 跑完回到用户原始目标，不要停在中间产物上。
+2. 用户只给 `ep-...` → `arkcli resources resolve <ep-id> --format json`；只有用户任务属于明确理解产出，且 `supported_workflows` 包含 `understand`，才走本 skill。
+3. 用户给了临时 Key/Base URL/Endpoint → 按共享 execution-context 组合规则决定参数，不先切 profile。
+4. 没有完整 stateless 上下文时过认证闸门：不确定登录态先 `arkcli auth status`；鉴权失败按 [`../arkcli-auth/references/auth-modes.md`](../arkcli-auth/references/auth-modes.md) 的「API Key 模式的错误恢复」处理，**不要原地重试**。
+5. 备好输入：`--input @<file>`（可多次）。本地文件用 `@` 前缀；远程用 `https://` / `tos://` URL。
+6. **默认不传 `--model`**：每个 sub-skill 自带已验证可用的默认模型。只有在用户明确要换模型时才传完整版本化 ID 或 `ep-xxx`。
+7. 需要逐段输出加 `--stream`；想微调任务指令用 `--system-prompt-append "..."`，或 `--system-prompt-override "..."`。
+8. 跑完回到用户原始目标，不要停在中间产物上。
 
 ## sub-skill 速查表（12 个 / 4 模态）
 
@@ -95,6 +99,7 @@ metadata:
 | `arkcli +understand "<prompt>" --input @photo.jpg` | 省略 sub-skill → 按模态自动路由（此处 → image-caption） |
 | `arkcli +understand asr --input @speech.mp3 --stream` | 流式逐段输出 |
 | `arkcli +understand image-caption --input @x.jpg --system-prompt-append "用英文回答"` | 在内置 prompt 后追加指令 |
+| `arkcli +understand image-caption --input @x.jpg --dry-run --format json` | 无副作用预演；不调用 Responses API |
 
 ## 详细文档
 

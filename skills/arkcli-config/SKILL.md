@@ -17,7 +17,7 @@ metadata:
 
 ## 唤起信号（When To Trigger）
 
-- 用户提到：`profile`、`base-url`、`region`、`api-key`、`ARK_PROFILE/ARK_API_KEY/ARK_BASE_URL/ARK_REGION` 覆盖混乱
+- 用户提到：`profile`、`base-url`、`api-key` 覆盖混乱，或仍在使用已删除的全局 `--region/--project-name`
 - 用户现象：同一条业务命令“打到了错误环境/错误 base URL/错误账号”，怀疑是配置来源不一致
 - 用户目标：初始化/更新 profile、切换默认 profile、重置本地配置文件
 
@@ -47,7 +47,11 @@ metadata:
 `arkcli` 的解析优先级（从高到低）：
 
 - Profile 选择: `--profile` flag > `ARK_PROFILE` 环境变量 > `config.yaml` 的 `default_profile` > 第一个 `type=platform` 的 profile > `"default"` sentinel
-- 其它字段: 全局 flags（`--api-key/--base-url/--region`） > 环境变量（`ARK_API_KEY/ARK_BASE_URL/ARK_REGION`） > profile 配置 > identity store > `.env` fallback（仅无 identity 绑定时）
+- API Key: `--api-key` > `ARK_API_KEY` > profile > 同 identity store > 产品 `.env` 兼容值
+- Base URL: `--base-url` > `ARK_BASE_URL` > profile 自定义值 > 按 Profile 的 Region/Type 派生 > 默认值
+- Region/Project: 由所选 Profile 持有；`ARK_REGION` / `ARK_PROJECT_NAME` 不再覆盖运行时
+
+`--api-key/--base-url` 仅供数据面命令使用。无 Profile 时必须成对提供；覆盖 Base URL 时也必须显式提供 API Key。控制面/本地命令显式收到这两个 flag 会 fail-fast。
 
 排障时要明确”是谁覆盖了谁”，不要直接猜测。
 
@@ -79,7 +83,7 @@ metadata:
 ## 与其他 skill 的串联
 
 - profile 创建 / 切换 / 资源 default 设置 / API Key 管理 → 转 `arkcli-profile`（推荐）或继续看本 skill 的兼容映射
-- 业务命令失败且怀疑是 `--profile`、`--base-url`、`--region`、API Key 来源不一致时，先转到这里
+- 业务命令失败且怀疑是 `--profile`、`--base-url`、API Key 来源或 Profile 的 Region/Project 不一致时，先转到这里
 - 配置问题排除后，再回到原始业务 skill 继续
 - 配置仍无法解释问题时，再考虑转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md) 或 [`../arkcli-api-explorer/SKILL.md`](../arkcli-api-explorer/SKILL.md)
 

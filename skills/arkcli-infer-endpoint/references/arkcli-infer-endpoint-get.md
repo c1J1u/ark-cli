@@ -24,8 +24,6 @@ arkcli infer endpoint get <endpoint-id> [flags]
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `--api-key` | string | ARK API key override |
-| `--base-url` | string | Custom API base URL |
 | `--debug` | | Print request and response debug details to stderr |
 | `--dry-run` | | Preview request metadata without executing when supported |
 | `--format` | string | Output format: json (default "json") |
@@ -33,5 +31,4 @@ arkcli infer endpoint get <endpoint-id> [flags]
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |
 | `--page-limit` | int | Maximum pages to fetch with --page-all (default 10) |
 | `--profile` | string | Active config profile |
-| `--region` | string | ARK region override |
 | `--transform` | string | Transform output with a GJSON-style path expression |

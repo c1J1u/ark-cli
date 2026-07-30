@@ -57,14 +57,32 @@ arkcli +chat --model doubao-seed-1-6-251015 --previous-response-id "$RESP_ID" "�
 
 # 完整 JSON 输出
 arkcli +chat --model doubao-seed-1-6-251015 --format json "hello"
+
+# Endpoint + 临时 API Key；未给 Base URL 时按 Endpoint 权威 region 派生
+arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 ```
+
+## 临时执行上下文与 dry-run
+
+用户给出 Profile / API Key / Base URL / Endpoint 的任意组合时，先读
+[`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。
+
+- 显式 Base URL 必须同时显式提供 API Key，禁止把 profile Key 发往覆盖后的 URL。
+- Endpoint + API Key 可以不传 Base URL：CLI 读取 Endpoint 权威 region 后派生。
+- API Key + Base URL + Endpoint 是 stateless 单次调用，不切换/修改 profile。
+- API Key 的 `ark-*` 文本形态不能用于判断它属于哪个套餐或数据面。
+- `--dry-run` 会执行本地请求校验与上下文解析，输出无 secret 的
+  `execution_context`，但不会调用 Responses API、产生 token 用量或存储 response。
+- Endpoint 解析需要时可做只读控制面查询；这不属于计费的数据面推理。
+
+不要在日志或回复中回显 API Key。示例中的 placeholder 必须由安全变量替换。
 
 ## 参数
 
 | 参数 | 必填 | 类型 | 说明 |
 |------|------|------|------|
 | `<prompt>` | 是 | positional | 提示词（位置参数，放在命令最后） |
-| `--model` | 否 | string | **完整版本化模型 ID**（如 `doubao-seed-1-6-251015`）或推理接入点 ID（如 `ep-xxx`）。仅传族名 `doubao-seed-1-6` 不稳定，且较新模型族会直接报 `InvalidEndpointOrModel.NotFound`。**0.1.16+ 可省略**：缺省时 fallback 到 active profile（按 `--profile > ARK_PROFILE > default` 解析）的 `Resources.Text.Default`，未设时报 hint 引导 `arkcli profile set-default --modality text <id>` |
+| `--model` | 否：可 fallback 到 active profile 的 `Resources.Text.Default` | string | **完整版本化模型 ID**（如 `doubao-seed-1-6-251015`）或推理接入点 ID（如 `ep-xxx`）。仅传族名不稳定，较新模型族会直接报 `InvalidEndpointOrModel.NotFound`。缺省且 profile 未设 default 时，按错误 hint 运行 `resources list` / `profile set-default`。 |
 | `--input` | 否 | string（可重复） | 文件引用，如 `@photo.jpg`；按扩展名分流到 image/video/audio/file ContentItem。重复传入即多文件 |
 | `--stream` | 否 | bool | 流式输出（两段：`Thinking:` + `Response:`） |
 | `--instructions` | 否 | string | 系统级 instructions，注入到本次 Responses 请求 |
@@ -74,6 +92,9 @@ arkcli +chat --model doubao-seed-1-6-251015 --format json "hello"
 | `--reasoning-effort` | 否 | string | 思考强度：`minimal` / `low` / `medium` / `high`（仅在支持 reasoning 的模型上生效） |
 | `--store` | 否 | bool | 持久化本次响应，让后续 `--previous-response-id` 可以接续；不加 `--store` 则只保留极短窗口 |
 | `--previous-response-id` | 否 | string | 上一轮响应 id，用于多轮对话接续 |
+
+全局 `--dry-run` / `--profile` / `--api-key` / `--base-url` 见共享
+[`global-flags.md`](../../arkcli-shared/references/global-flags.md)。
 
 ## @file 机制
 

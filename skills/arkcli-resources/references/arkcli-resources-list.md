@@ -25,6 +25,11 @@ profile.Type:
     text     → ListArkCodeLatestModel (必传 AccountID, 从 SSO 派生)
     image    → 借道 platform ListEndpoints + modality filter (S10, commit f69be53)
     video    → 同 image
+  agent-plan-team
+    text/image/video → 与 Agent Plan 使用相同模型池，但凭证语义是 team_seat
+  coding-plan-team
+    text     → Coding Plan 模型 + team_seat
+    image/video → platform Endpoint；team_seat 不可调用，required_overrides=["api_key"]
 ```
 
 ## 输出形态
@@ -35,15 +40,53 @@ profile.Type:
   "type": "<platform | agent-plan | coding-plan>",
   "modality": "<text|image|video>",
   "items": [
-    {"id": "<id>"},
-    {"id": "<id>", "is_default": true}
+    {
+      "id": "<id>",
+      "resource_kind": "<endpoint|model>",
+      "data_plane": "<platform|agent_plan|coding_plan>",
+      "credential_kind": "<paygo|agent_plan|team_seat>",
+      "invocable": true,
+      "is_default": true
+    }
   ],
   "current_default": "<id-or-empty>",
   "item_count": <n>
 }
 ```
 
-`is_default` 仅在 items[].id 跟 profile.yaml 的 `Resources.<modality>.Default` 匹配时出现。
+`is_default` 仅表示 items[].id 跟 profile.yaml 的 default 匹配。它不保证当前凭证
+可调用；`invocable=false` 时读取 `required_overrides`。
+
+## resolve Endpoint
+
+用户只给 Endpoint，或需要确认它该走 `+chat` / `+understand` / `+gen` 时：
+
+```bash
+arkcli resources resolve <endpoint-id> --format json
+```
+
+输出示意：
+
+```json
+{
+  "resource_id": "ep-...",
+  "resource_region": "cn-beijing",
+  "resource_kind": "endpoint",
+  "data_plane": "platform",
+  "model_id": "<bound-model-id>",
+  "input_modalities": ["text"],
+  "output_modalities": ["video"],
+  "supported_workflows": ["gen"],
+  "generation_modality": "video",
+  "requires_user_intent": false,
+  "resolution_source": "endpoint_and_model_metadata"
+}
+```
+
+- 解析先读 Endpoint 绑定，再读模型的 task/API/modality 元数据。
+- `resource_region` 是 Endpoint 权威 region，可用于 Endpoint + API Key 时派生 Base URL。
+- `requires_user_intent=true` 表示同一资源可服务多个候选工作流，最终由用户任务选择。
+- `resolution_warnings` 非空或模态为 `unknown` 时，不要从 Endpoint ID / 模型名猜。
 
 ## 跟旧 list 形态的差异（0.1.16 前）
 
@@ -63,3 +106,6 @@ profile.Type:
 | identity scope | `RebuildForProfile` 切 target 身份 | 用 active profile |
 
 Agent 优先 `arkcli resources list`，只在需要 Endpoint 全字段（status / quota / created_at）时回退 `arkcli api ListEndpoints --params ...`。
+
+临时 API Key / Base URL / Endpoint 的执行决策见
+[`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。

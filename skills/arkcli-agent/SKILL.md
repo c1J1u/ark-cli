@@ -39,7 +39,7 @@ metadata:
 ## 认证与 Profile
 
 - 业务命令前先 `arkcli auth status --format json`。未登录、SSO 过期、STS refresh 失败时先处理登录。
-- 当前数据面 Files / Session resources / events / threads 需要可用 ARK API Key。CLI 会优先使用 profile 里的 `api_key`，也可用全局 `--api-key` 覆盖。
+- 当前数据面 Files / Session resources / events / threads 需要可用 ARK API Key。CLI 默认使用 profile / identity 解析出的 Key；也可用全局 `--api-key` 做本次调用覆盖。若同时自定义 `--base-url`，必须显式成对提供二者；无 Profile 的 stateless 模式也必须成对提供。
 - 线上环境已就位，默认走 `--env prod`，不要再默认跑 stg。
 - 非交互 SSO 登录是两段式：先 `arkcli auth login --no-browser` 拿 URL；用户贴回 base64 code 后，再跑 `arkcli auth login --no-browser --code <code>`。
 
