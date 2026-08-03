@@ -12,7 +12,7 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)（认证闸门、命令选择顺序、写操作安全边界）。**
 
-> **本 skill 只负责编排顺序与分支。** 每一步的**私有命令细节**（如 `+deploy` 的 `--model` / `--name` / JSON 字段，`models search` 的过滤）都在对应能力 skill 里，**本文不重复**。本文只允许出现跨命令通用的安全护栏（如 `--dry-run` 预演）；一旦出现某个命令的私有 flag 说明，就是越界。
+> **本 skill 只负责编排顺序与分支。** 每一步的**私有命令细节**（如 `+deploy` 的 `--model` / `--name` / JSON 字段，`models search` 的过滤）都在对应能力 skill 里，**本文不重复**。本文只允许出现跨命令通用的安全护栏（只在叶子命令支持时使用 Client Preview，否则只读核对 + 明确确认）；一旦出现某个命令的私有 flag 说明，就是越界。
 
 ## 离线 / `--help` 验证模式
 
@@ -52,7 +52,7 @@ Step 2  查是否已有可复用 Endpoint     ★必查★
               └─ 无匹配 EP（账号下只有别的模型的 EP 不算匹配）─► Step 3
 
 Step 3  创建 Endpoint                 ★唯一写操作★
-          └─► arkcli-deploy：先 --dry-run / 与用户确认，再真建
+          └─► arkcli-deploy：只读核对 + 与用户确认，再真建（不支持 --dry-run）
               （二次确认协议见 arkcli-shared）
 
 Step 4  (可选) 生成调用示例
@@ -68,7 +68,7 @@ Step 5  回执
 - **Step 2 必查、但只复用"匹配"的**：仅当 `list --mine` 里存在**绑定目标模型/版本**且**状态可用(如 Running)**的 endpoint 才跳过 Step 3 复用它；账号下别的模型的 endpoint **不算匹配**，不能拿来顶。多个匹配或拿不准就先让用户确认选哪个，别默默挑一个——否则会给出与目标不一致的 endpoint-id，链路不闭环。无匹配就正常走 Step 3 创建。
 - **语音模型不是 onboarding 目标**：广场可搜到的语音模型只代表可发现，不代表 arkcli 可调用、可部署、可生成示例、可查用量/费用；Step 1 一旦确认是语音模型，流程必须停止，不进入 Step 2-Step 4。
 - **不要补替代接入路径**：语音模型命中后只回答 arkcli 边界；不要主动推荐控制台 / OpenAPI / SDK 接入步骤或链接。
-- **Step 3 是唯一写操作**：套用 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 的二次确认 + 实名闸门；用户语气再急也先 `--dry-run` 或确认。
+- **Step 3 是唯一写操作**：套用 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 的二次确认 + 实名闸门；`+deploy` 不支持 `--dry-run`，用户语气再急也要先只读核对并确认。
 - **Step 4 可选、可降级**：`+code-example` 的示例按 model-version 提供，部分版本后端无 group 会返回 not found；这是预期内的覆盖缺口，降级到控制台示例页即可，不要把它当链路失败。
 - 全程是**编排**：每一步把控制权交给 owning skill，不在本文复述其参数。
 

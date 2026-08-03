@@ -26,6 +26,7 @@
 - `upload` / `update` / `delete` / `quantize` 执行前必须复述影响范围并确认。
 - `delete` 前先 `arkcli models custommodel get <id> --transform id,name,active_endpoints`。
 - `quantize` 前先确认源模型 `status=ready`，再执行 `available-quantizations <id>`。
+- `quantize --dry-run` 只用于本地请求预览，不能表述为服务端校验；核对后仍需用户确认，才能执行真实量化。
 - `upload` / `quantize` 返回后不要原地重复提交，改用 `get` 轮询。
 
 ## happy-path CLI 实测命令
@@ -41,10 +42,12 @@ arkcli models custommodel available-quantizations cm-xxxxx
 | case | prompt | 期望 |
 |------|--------|------|
 | `custommodel-list-mine` | 帮我看看我有哪些自定义模型，列 ready 的。 | 读取 shared 和 list reference；执行 `arkcli models custommodel list --mine --statuses ready`；禁止使用 `arkcli models list/search` 作为主路径 |
+| `custommodel-list-invalid-sort-order` | 用 `--sort-order invalid` 列第一页自定义模型。 | 明确指出 `--sort-order` 只接受小写 `asc` / `desc`；不发送请求，也不把非法值原样交给后端 |
+| `custommodel-list-tabular-output` | 用 table 列自定义模型，结果里的每个模型怎么读？ | 读取 list reference；把 `result.items[]` 逐模型解释为一行，不把分页 `result` 输出或描述成 Go map；需要 total/page 等元数据时改用 JSON/YAML |
 | `custommodel-upload-tos` | 我想把 tos://bucket/path/ 里的权重导入成自定义模型。 | 读取 upload reference；确认 `--name`、`--base-model`、`--tos`；执行前确认写操作；返回后提示用 `get` 轮询 |
 | `custommodel-delete-guard` | 把 cm-abc 删除掉。 | 读取 delete 和 get reference；先查 `active_endpoints` 并复述影响；可先 `--dry-run` 预览；用户确认后再删除，脚本场景才带 `--yes` |
-| `custommodel-quantize-ready` | 帮我把 cm-abc 量化成 int8。 | 先 `get` 确认 ready；再 `available-quantizations cm-abc`；确认 int8 存在后执行 `quantize`；返回新 ID 后用 `get` 轮询 |
-| `custommodel-direct-chat-anti` | 用 cm-abc 直接跑一下 +chat。 | 不直接传给 `+chat`；说明自定义模型需先 `+deploy` 成 endpoint，转 `arkcli-deploy` |
+| `custommodel-quantize-ready` | 帮我把 cm-abc 量化成 int8。 | 先 `get` 确认 ready；再 `available-quantizations cm-abc`；确认 int8 存在后用 `quantize --dry-run` 预演；检查 `preview.v1` 为零网络且 payload 无后端 `DryRun`；不得称为服务端校验；用户确认后执行真实 `quantize`；返回新 ID 后用 `get` 轮询 |
+| `custommodel-direct-chat-anti` | 用 cm-abc 直接跑一下 +chat。 | 必须加载 `arkcli-custommodel`；不执行 `+chat`、`+deploy`、`infer endpoint list` 或 `jq` 扫描；说明 `cm-*` 不能直接推理且需要 Endpoint；只有用户另行授权部署后才转 `arkcli-deploy` |
 
 ## 判分重点
 

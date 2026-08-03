@@ -14,6 +14,11 @@ arkcli models custommodel quantize <id> --quantization <mode> [flags]
 # 标准用法（必须先跑 available-quantizations 确认 mode 合法，并查看该 mode 预期支持的部署形态）
 arkcli models custommodel quantize cm-xxxxx --quantization int8
 
+# Client Preview：本地展示请求，不调用量化 API
+arkcli models custommodel quantize cm-xxxxx \
+  --quantization int8 \
+  --dry-run
+
 # 同时附描述
 arkcli models custommodel quantize cm-xxxxx \
   --quantization int8 \
@@ -27,12 +32,14 @@ arkcli models custommodel quantize cm-xxxxx \
 | `<id>` | 是 | string | 待量化的源模型 ID（必须 `status=ready`） |
 | `--quantization` | 是 | string | 量化模式；**必须从 `available-quantizations <id>` 返回的集合里选** |
 | `--description` | 否 | string | 量化结果模型的描述，最多 300 字符 |
+| `--dry-run` | 否 | bool | 命令本地 Client Preview：输出 `preview.v1`，不调用量化 API |
 
 ## Output
 
 返回 JSON，含新生成的 `cm-yyyyy`（与源不同）和初始 status。
 
 **注意**：
+- `--dry-run` 不调用 `CreateQuantizedCustomModel`，`preview.v1.effects.network` 必须为 `blocked`；本地展示的 `steps[].payload` 不携带后端 `DryRun` 字段，它不是服务端 validation
 - **异步**任务：返回成功只代表受理，必须 `custommodel get <new-id>` 轮询新 ID 至 `ready`
 - 量化结果是**独立的新自定义模型**——源模型保留不变，账号下会同时存在两个 cm-xxxxx
 - 量化模式选择对推理性能/精度影响较大，建议生产前两边各部署一个 endpoint 做对照

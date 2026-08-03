@@ -44,7 +44,6 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --page-delay 800 --
 | Flag | Type | Description |
 |------|------|-------------|
 | `--debug` | | Print request and response debug details to stderr |
-| `--dry-run` | | Preview request metadata without executing when supported |
 | `--page-all` | | Automatically fetch all pages when supported |
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |
 | `--page-limit` | int | Maximum pages to fetch with --page-all (default 10) |

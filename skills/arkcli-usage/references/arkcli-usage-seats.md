@@ -47,8 +47,8 @@ arkcli usage seats --product coding-plan-team --with-usage  # 仅 percent(Coding
 |---|---|---|---|
 | `--product` | 是 | string | 团队版 plan id:`agent-plan-team` / `coding-plan-team`。**personal 不支持**(没 seat 概念) |
 | `--biz-info` | 否 | string | 档位过滤:`small/medium/large/max`(AgentPlan)\|`lite/pro`(CodingPlan) |
-| `--billing-status` | 否 | string slice | 计费状态(可重复):`Running` / `Expired` / `Reclaimed` / `Inactive` |
-| `--seat-status` | 否 | string | 席位状态:`Active` / `Inactive` |
+| `--billing-status` | 否 | string slice | 计费状态(可重复):`Pending` / `Running` / `Expired` / `Reclaimed` |
+| `--seat-status` | 否 | string | 席位状态:`Idle` / `Active`;`Idle` 表示未绑定,`Active` 表示已绑定 |
 | `--user-id` | 否 | string slice | 按子用户 ID 过滤(可重复;>1 触发 client-side fan-out 并行查) |
 | `--user-name` | 否 | string slice | 按子用户名字过滤(可重复;>1 触发 client-side fan-out 并行查) |
 | `--seat-id` | 否 | string slice | 指定具体 SeatID(可重复;wire 原生 array,单次调用) |
@@ -174,6 +174,7 @@ arkcli usage seats --product agent-plan-team --seat-id seat-001 --seat-id seat-0
 | 错误 | 原因 | 处理 |
 |---|---|---|
 | `--product is required and must be a team plan` | 没传 / 传了 personal | 传 `agent-plan-team` 或 `coding-plan-team` |
+| `invalid --seat-status` / `invalid --billing-status` | 状态值不在上述枚举中 | 改用 help 列出的合法值;非法值不会退化成全量查询 |
 | `AccessDenied` | 调用者不是 admin | 让 admin 跑;或子用户改用 `usage plan` 看自己的那个 seat |
 | `exceeded auto-paginate limit (30 pages)` | 团队规模 > 3000 seat | 用 `--page-number` 手动分页 |
 

@@ -5,29 +5,29 @@ description: arkcli gen get / list / delete 三个标准 CRUD 命令的 referenc
 
 # gen get / list / delete
 
-这是 `+gen` 的"对账面"——`+gen` 负责提交生成任务并自动轮询等待；这三个命令负责事后查询任务状态、列出历史任务、删除已完成任务。
+这是 `+gen` 的"对账面"——`+gen` 负责提交生成任务；视频等异步任务默认返回 `task_id`，这三个命令负责事后查询任务状态、列出历史任务、删除已完成任务。
 
 ## 何时使用
 
 - `gen get <task-id>` —— 已经有 `task_id`，想拿回任务的最新状态（含 `output_url` / `usage` / `error`）。**任务一旦 `succeeded`，`gen get` 会把产物自动下载到本地**（默认当前目录，文件名 `<task-id>.mp4`），跟 `+gen --wait` 的落地行为一致；`--save-to=""` 可关闭。
 - `gen list` —— 列出当前账户下的异步任务，支持按 `status` / `model` / `service-tier` / `task-id` 过滤。
-- `gen delete <task-id>` —— 删除一个已完成的任务记录。
+- `gen delete <task-id>` —— 删除一个已完成的任务记录。**破坏性写操作，不可逆；非交互场景必须带 `--yes`**
 
 ## 模态覆盖
 
 这三个命令背后的端点（SDK `arkruntime.ListContentGenerationTasks` / `GetContentGenerationTask` / `DeleteContentGenerationTask`）在服务端是 **modality-agnostic** 的：
 
-- `+gen` 视频任务（`seedance-*` 模型族）创建的任务
+- `+gen` 提交到视频生成能力模型或 Endpoint 后创建的任务
 - 3D 任务（`seed-3d` 模型族）创建的任务
 - 任何通过 `arkcli api arkruntime.create_content_generation_task` 提交的异步生成任务
 
-但**不包含图片任务**：`seedream-*` 走 `arkruntime.generate_images` 是同步端点，没有 task list 概念。
+但**不包含图片任务**：图片生成走 `arkruntime.generate_images` 同步端点，没有 task list 概念。这里的同步/异步边界由结构化能力决定，不应通过模型品牌名前缀判断。
 
 ## 命令速查
 
 ```bash
 # 1. 用 +gen 提交一个视频任务（默认异步，立即返回 task_id；要同步阻塞加 --wait）
-arkcli +gen "落日下的赛博朋克城市" --model seedance-... --duration 5
+arkcli +gen "落日下的赛博朋克城市" --model <versioned-video-model-or-endpoint> --duration 5
 
 # 2. 拿到 task_id 后单独按 ID 查询（不轮询，单次拉一下）
 #    任务已 succeeded 时会自动把产物下载到当前目录（<task-id>.mp4）
@@ -44,13 +44,13 @@ arkcli gen list --status succeeded --page-size 10
 arkcli gen list --status succeeded --page-size 10 --page-num 2
 
 # 5. 按 model 精确匹配过滤
-arkcli gen list --model seedance-1-0-pro-250528
+arkcli gen list --model <versioned-video-model-or-endpoint>
 
 # 6. 多 task ID 批量查
 arkcli gen list --task-id tsk_a --task-id tsk_b
 
 # 7. 删除
-arkcli gen delete tsk_xxxxx
+arkcli gen delete tsk_xxxxx --yes
 ```
 
 ## flag 说明
@@ -86,7 +86,16 @@ arkcli gen delete tsk_xxxxx
 
 ### gen delete
 
-无额外 flag。`<task-id>` 是 positional arg。
+`<task-id>` 是 positional arg。
+
+| flag | 说明 |
+|---|---|
+| `--yes` | 跳过交互式二次确认。非交互场景必须传；不传时命令返回 `requires_confirmation` 并**不触达后端**。 |
+| `--dry-run` | 只打印本地构造的请求 payload，不触达后端、不进入确认交互。 |
+
+**交互确认**：
+  - **TTY 交互**：默认弹 Y/N 提示（`--yes` 可跳过）。
+  - **非交互 / Agent / CI**：agent 不可以默认加上 `--yes`，必须等待用户明确同意后才可以加上 `--yes`。
 
 ## 输出形态
 

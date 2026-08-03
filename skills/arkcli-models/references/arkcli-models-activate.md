@@ -8,7 +8,7 @@
 
 | 入口 | 触发方式 | 适用场景 |
 |------|---------|---------|
-| `arkcli models activate <name>` | 用户**主动**开通 | 提前为业务做好模型可用性准备；想试用新模型；测 dry-run |
+| `arkcli models activate <name>` | 用户**主动**开通 | 提前为业务做好模型可用性准备；想试用新模型；先本地预览请求 |
 | `arkcli deploy ...` / `arkcli infer endpoint create ...` | **被动**触发：检测到模型未开通时自动 prompt | 用户的真实目标是 deploy / 创建端点，开通只是前置依赖 |
 
 `activate` 不会先 GetModelChargeItem 检测，而是直接发起 OpenModelChargeItem。重复对已开通模型调用是幂等的（后端处理）。
@@ -22,7 +22,7 @@ arkcli models activate doubao-seed-1-6-flash
 # 同时开通基础服务与低延迟推理子服务（URL2 完整请求示例）
 arkcli models activate doubao-seed-1-6-flash --sub-services base,fast-infer
 
-# dry-run 校验（仅校验请求合法性，不实际开通；自动跳过 [Y/N] 提示）
+# Client Preview：只在本地展示请求，不联系后端，也不进入 [Y/N] 提示
 arkcli models activate doubao-seed-1-6-flash --sub-services base,fast-infer --dry-run
 
 # 非交互（CI / 脚本场景，跳过 [Y/N] 确认提示）
@@ -47,9 +47,11 @@ arkcli models activate doubao-seed-1-6-flash --yes
 
 不传时后端等价于 `["base"]`。CLI 先做本地校验：传非枚举值会立刻拒绝，避免发出会被后端 `InvalidParameter.SubServices` 反弹的请求。
 
-### 全局参数
+### Client Preview
 
-`--dry-run`（继承自全局）会让后端**仅校验请求合法性，不真正开通**。dry-run 模式自动跳过本地 `[Y/N]` 确认，且 service 层不再 polling 状态（后端不会真的 Available）。
+`--dry-run` 是 `models activate` 叶子命令的本地 flag，不是全局 flag。它输出
+`preview.v1` 中的 `OpenModelChargeItem` payload，不联系后端、不进入确认门，也不
+polling。它只证明 CLI 能构造参数，不证明模型存在、权限可用或服务端会接受请求。
 
 ## 返回值
 
@@ -63,14 +65,21 @@ arkcli models activate doubao-seed-1-6-flash --yes
 }
 ```
 
-dry-run 返回：
+Client Preview 返回结构：
 
 ```json
 {
+  "schema_version": "preview.v1",
   "dry_run": true,
-  "validated": true,
-  "foundation_model": "doubao-seed-1-6-flash",
-  "sub_services": ["base", "fast-infer"]
+  "mode": "client_preview",
+  "steps": [{
+    "target": "OpenModelChargeItem",
+    "payload": {
+      "FoundationModelName": "doubao-seed-1-6-flash",
+      "SubServices": ["base", "fast-infer"]
+    },
+    "fidelity": "logical"
+  }]
 }
 ```
 
@@ -86,7 +95,7 @@ dry-run 返回：
 ## 注意事项
 
 - 子服务可以增量开通：先 `--sub-services base` 再 `--sub-services context-cache`，互不冲突
-- `--dry-run` 不计入用量，可放心使用以校验请求合法性
+- `--dry-run` 不联网、不开通、不计入用量；它是客户端预览，不是服务端合法性校验
 - 已开通的模型再次 activate 是幂等行为（后端约定）
 
 ## 参考

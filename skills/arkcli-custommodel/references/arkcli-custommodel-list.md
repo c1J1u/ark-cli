@@ -32,7 +32,7 @@ arkcli models custommodel list --base-model-ids fm-xxxxx
 arkcli models custommodel list --search my-finetune
 
 # 分页与排序
-arkcli models custommodel list --page 1,20 --sort-by CreateTime --sort-order Desc
+arkcli models custommodel list --page 1,20 --sort-by CreateTime --sort-order desc
 
 # 自动翻页
 arkcli models custommodel list --mine --page-all --page-delay 500
@@ -55,8 +55,11 @@ arkcli models custommodel list --mine --page-all --page-delay 500
 | `--search` | 否 | string | 模糊搜索 name / id / base 模型 display name |
 | `--page` | 否 | string | 分页表达式 `<number,size>`，例：`1,10`（不接受空格） |
 | `--sort-by` | 否 | string | 排序字段，默认 `CreateTime` |
-| `--sort-order` | 否 | string | 排序方向，默认 `Desc` |
+| `--sort-order` | 否 | string | 排序方向，只接受 `asc` / `desc`，默认 `desc` |
 
 ## Output
 
-返回 JSON 分页结果，每个 item 通常含 `id` (cm-xxxxx) / `name` / `status` / `base_model` / `customization_type` / `source` / `create_time` / `update_time`。
+- `--format json` / `--format yaml` 保留完整的执行和分页结果。
+- `--format table` / `--format csv` 按模型展开，每个 `result.items[]` 输出一行，不会把整个 `result` 显示成 map。
+
+每个 item 通常含 `id` (cm-xxxxx) / `name` / `status` / `foundation_model` / `customization_type` / `source_type` / `create_time` / `update_time`。表格单元格中的嵌套字段（如 `foundation_model`）使用紧凑 JSON 表示。

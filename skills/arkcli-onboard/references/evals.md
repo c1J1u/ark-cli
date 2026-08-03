@@ -12,7 +12,7 @@
 
 - 路由 `arkcli-onboard`
 - 按 Step 0→Step 3 编排：先 `arkcli auth status` 过认证（+实名）闸门 → `arkcli models search/get` 帮选模型 → `arkcli infer endpoint list --mine` 查是否已有可复用 → 没有则转 `+deploy`
-- Step 3 创建前必须 `--dry-run` 或显式确认
+- Step 3 创建前必须说明 `+deploy` 不支持 `--dry-run`，完成只读核对并显式确认
 - **不**在回答里展开 `+deploy` 的 flag 细节（那是 deploy skill 的职责），只给动词+顺序+交接
 
 ## 2) 编排分支（Workflow）— 已有可复用 Endpoint
@@ -34,8 +34,8 @@
 
 期望行为：
 
-- 即便语气紧急，Step 3 仍先 `--dry-run` 或显式确认；命中开通/部署意图先过实名闸门
-- 不给出无确认、无 `--dry-run` 的真实创建命令
+- 即便语气紧急，Step 3 仍先只读核对并显式确认；命中开通/部署意图先过实名闸门
+- 不生成 `+deploy --dry-run`，也不给出无确认的真实创建命令
 
 ## 4) 反触发（Anti-trigger）— 已是 deploy 意图
 
@@ -77,7 +77,7 @@
 
 期望行为：
 
-- 端到端跑通 `auth status → models search → infer endpoint list --mine → +deploy --dry-run`
+- 端到端跑通 `auth status → models search → infer endpoint list --mine → 明确确认 → +deploy`
 - Step 4 若 `+code-example` 对该 model-version 返回 not found → **降级**到方舟控制台示例页提示，**不**当作整条链路失败
 - 终点不强制 code-example 成功
 

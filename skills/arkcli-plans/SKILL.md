@@ -15,7 +15,7 @@ metadata:
 
 ## 🔒 协议闸门（plans buy / plans renew 强制流程）
 
-`plans buy` / `plans renew` 是**计费写操作**，加 `--yes` 才真扣款。**不传 `--yes` 不传 `--dry-run` 时**, CLI 不下单, 而是返回:
+`plans buy` / `plans renew` 是**计费写操作**，加 `--yes` 才真扣款。**不传 `--yes` 不传 `--estimate` 时**, CLI 不下单, 而是返回:
 
 ```json
 {
@@ -34,7 +34,7 @@ metadata:
 
 **违反这条流程 = 帮用户跳过法律合规步骤**。这跟 frontend 购买面板的 "我已阅读并同意《...》" checkbox 等价 — 必须真人看过才能勾。
 
-`--dry-run` 是询价路径,不下单也不需要协议确认 — 但用户最终走 `--yes` 真下单时仍需先看协议。
+`--estimate` 是在线询价路径,不下单也不需要协议确认；它不是 Client Preview。用户最终走 `--yes` 真下单时仍需先看协议。
 
 ## 业务定位
 

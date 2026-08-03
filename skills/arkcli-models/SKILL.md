@@ -82,17 +82,17 @@ metadata:
 - 用户问"我的模型"、"自定义模型"、"最近创建了多少"、"列出来"、"统计数量"：这是模型资产盘点，不是找候选模型；先读 [`references/arkcli-models-list.md`](references/arkcli-models-list.md)，用 `arkcli models list --page-all` 拉取后做客户端过滤，不要跳到 Raw API Explorer
 - 已经有明确模型 ID：用 `get`
 - 只是为 `+chat` / `+gen` / `+deploy` 找模型：查到后立即回原任务
-- 用户**主动**要开通某个基础模型（"先把 doubao-seed-1-6-flash 开通好"、"我想试用 fast-infer 子服务"、"dry-run 看看请求合不合法"）：用 `activate`，先读 [`references/arkcli-models-activate.md`](references/arkcli-models-activate.md)；如果用户只是要 deploy / 创建端点，由 deploy / infer-create 自行触发隐式开通即可，不要先单独 activate
+- 用户**主动**要开通某个基础模型（"先把 doubao-seed-1-6-flash 开通好"、"我想试用 fast-infer 子服务"、"先预览开通请求"）：用 `activate`，先读 [`references/arkcli-models-activate.md`](references/arkcli-models-activate.md)；如果用户只是要 deploy / 创建端点，由 deploy / infer-create 自行触发隐式开通即可，不要先单独 activate
 
 ## Agent 快速执行顺序
 
 1. 先确认是否已登录；不确定时先看 `arkcli auth status`
-2. 用户描述带意图（modality / 数值容量 / capability）时，用 `arkcli models search` + 对应 flag（`--modality`、`--min-context-window`、`--capability`...）
+2. 用户描述带意图（modality / 数值容量 / capability / 缓存类别）时，用 `arkcli models search` + 对应 flag（`--modality`、`--min-context-window`、`--capability`、`--cache-type`...）；缓存能力必须看 `cache_types`，不要使用旧 `capabilities.caching`
 3. 用户只知道模糊名称时，仍用 `arkcli models search <keyword>`（默认返回全部命中，无分页）
 4. 需要按 modality 全量枚举或翻页统计时，用 `arkcli models list`
 5. 用户问"最近 N 天创建的自定义模型/我的模型"时，用 `arkcli models list --page-all --sort-by CreateTime --sort-order Desc --format json`，再在本地按 `create_time`、`model_type` / `customization_type` / `source_type` 等字段过滤；不要因为没有时间过滤 flag 就改探 `arkcli api --list`
 6. 已有明确模型 ID，需要详情时，用 `arkcli models get`
-7. 用户明确要开通模型（主动激活，不是为了立刻 deploy）时，用 `arkcli models activate <name> [--sub-services ...]`；CI 场景加 `--yes`，校验场景加 `--dry-run`
+7. 用户明确要开通模型（主动激活，不是为了立刻 deploy）时，用 `arkcli models activate <name> [--sub-services ...]`；CI 场景加 `--yes`，本地请求预览用 `--dry-run`，但不得称为服务端校验
 8. 查到 / 激活完模型后，回到发起它的上游链路：`+chat` / `+gen` / `+deploy`
 
 ## 典型业务链路
@@ -114,7 +114,7 @@ metadata:
 
 **两条获取路径，按效率递减：**
 
-- **路径 A（高效，复用已有结果）**：刚执行过 `arkcli models search <keyword>` 或 `arkcli models list` 时，返回 JSON 每个 item 自带 `primary_version` 字段，Agent 直接读取并拼接 `<name>-<primary_version>`，无需额外调用。**`search` 还会同步返回 `context_window` / `input_modalities` / `output_modalities` / `capabilities` 等结构化字段（来自 ArkModels enrich），下游可以直接基于此判断模型是否合适，省去再调 `get` 的成本**。
+- **路径 A（高效，复用已有结果）**：刚执行过 `arkcli models search <keyword>` 或 `arkcli models list` 时，返回 JSON 每个 item 自带 `primary_version` 字段，Agent 直接读取并拼接 `<name>-<primary_version>`，无需额外调用。**`search` 还会同步返回 `context_window` / `input_modalities` / `output_modalities` / `capabilities` / `cache_types` 等结构化字段（来自 ArkModels enrich），下游可以直接基于此判断模型是否合适，省去再调 `get` 的成本**。
 - **路径 B（单独查询）**：只知道裸名时，`arkcli models get <name> --transform 'primary_version'` 直接返回版本号
 
 **注意**：`--transform` 输出带 JSON 双引号（如 `"251228"`），shell 拼接前必须 `tr -d '"'` 剥掉：
@@ -164,7 +164,7 @@ arkcli models search --multimodal --output-modality text --strict-filter
 
 | 命令 | 说明 |
 |------|------|
-| `arkcli models search [keyword] [filters]` | **Agent 首选**：全量召回 + ArkModels enrich + modality/context/capability 结构化过滤 + 重排；返回字段含 `context_window` / `input_modalities` / `output_modalities` / `capabilities` |
+| `arkcli models search [keyword] [filters]` | **Agent 首选**：全量召回 + ArkModels enrich + modality/context/capability/cache type 结构化过滤 + 重排；返回字段含 `context_window` / `input_modalities` / `output_modalities` / `capabilities` / `cache_types` |
 | `arkcli models list` | 按 modality 全量枚举、翻页统计、模型资产盘点；轻量，不含 enrich |
 | `arkcli models get <id> [version]` | 单个模型完整详情（聚合多 API，最重也最全）|
 

@@ -1,6 +1,6 @@
 ---
 name: arkcli-chat
-version: 1.2.0
+version: 1.2.1
 description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；有明确产出形态的多模态理解走 arkcli-understand。"
 metadata:
   requires:
@@ -28,9 +28,10 @@ metadata:
 - 支持**对账面命令**：`arkcli chat get/delete/list-input-items <response-id>`，对 `--store` 过的 response 做 CRUD，详见 [`references/chat-meta.md`](references/chat-meta.md)。
 - 支持**缓存与思考**：`--caching enabled|disabled`（配 `--cache-prefix`）控制服务端 prompt cache；`--thinking auto|enabled|disabled` 控制思考阶段；`--expire-at <epoch_sec>` 给 stored response 加过期。详见 [`references/caching-thinking.md`](references/caching-thinking.md)。
 - 支持**流式事件**：`--stream --include-events` 输出原始 SDK 事件 NDJSON（每行一个 JSON），供 autotest / agent 程序化消费。详见 [`references/stream-events.md`](references/stream-events.md)。
+- 支持**可验证的严格 JSON**：`--text-format json_schema --text-schema <file> --text-strict` 不只把约束传给服务端，还会在客户端确认响应完整、是直接 JSON 且符合 Schema；否则非零退出。严格流式会先缓冲，校验成功后才输出，避免泄出半截 JSON。详见 [`references/text-format.md`](references/text-format.md)。
 - **输出 schema（务必先看）**：`+chat` 返回是 arkcli **扁平** schema（`{id, model, content, reasoning_content, usage, ...}`），**不是** Responses API 原生 `output[].content[].text` 嵌套；助手文本直接用 `.content` 取。`--format` 不会切换 shape。详见 [`references/arkcli-chat.md`](references/arkcli-chat.md) 的「返回值」段。
 - 用户临时提供 `--api-key` / `--base-url` / Endpoint 时，MUST 读取 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。不要从 Key 文本猜套餐类型，也不要把临时值写入 profile。
-- `--dry-run` 只构造请求摘要与无 secret 的 `execution_context`，不会调用 Responses API、产生 token 用量或存储 response。
+- `--dry-run` 只在本地构造 `preview.v1` 请求摘要与无 secret 的执行上下文；不会读取在线元数据、刷新凭证、调用 Responses API、产生 token 用量或存储 response。在线依赖必须列为 `unresolved`。
 
 ## 快速决策
 

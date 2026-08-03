@@ -1,13 +1,13 @@
 ---
 name: arkcli-train-finetune
-description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。适用于选择可训练模型与训练方法、查询价格和超参数、校验训练文件、预览并创建任务、列出任务、观察或操作指定任务，以及根据效果指标导出和部署精调产物。本 skill 不负责数据集管理。
+description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，并从训练指标选择最佳 step、导出训练产物为 custom model、衔接模型仓库与推理部署。任何包含精调任务 ID（`mcj-*`）的查询、查不到原因诊断、日志、trajectory、状态或生命周期操作都应使用本 skill；也适用于选择训练方法、查询精调价格和超参数、创建任务及导出部署。本 skill 不负责数据集管理。
 ---
 
 # ArkCLI 精调训练
 
 先读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，遵循认证、输出、安全和二次确认规则。
 
-## 能力边界
+## 适用场景与能力边界
 
 - 创建精调任务：读取 [`references/create.md`](references/create.md)
 - 列出或筛选任务：读取 [`references/list.md`](references/list.md)
@@ -18,6 +18,25 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 - 不把 Raw API 或精调 SDK 当默认入口。
 
 只加载当前任务需要的 reference。不要为了熟悉全部命令一次性读取所有文件。
+
+## 反唤起信号
+
+- 只管理数据集而不涉及精调任务 → 使用数据集能力，不要加载本 skill。
+- 只查询公共基础模型目录 → 使用 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)。
+- 只管理已有推理 Endpoint → 使用 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)。
+- 纯登录或 profile/config 排障 → 分别使用 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md) 或 [`../arkcli-config/SKILL.md`](../arkcli-config/SKILL.md)。
+- 不要把 Raw API 或精调 SDK 当作默认入口；只有产品命令无法表达任务且用户确认 fallback 后才进入扩展流程。
+
+## 指定任务的精确范围诊断
+
+- 用户给出 `mcj-*` 并询问任务状态、查不到原因、日志或 trajectory 时，必须加载本 skill 并读取 [`references/manage.md`](references/manage.md)。
+- “这个任务怎么查不到”首先在当前 active profile / project / region 对原始 ID 执行 `arkcli train finetune get <mcj-id>`，再按该权威 API 的原始结果解释。
+- `mcj-*` 是不透明资源 ID。不得根据日期片段、后缀单词或臆测的哈希格式断言 ID 无效，也不得改写用户给出的 ID。
+- 用户要求不切环境或只查指定任务时，禁止执行 `train finetune list`、扫描其他任务、切换 profile/project/region，或查询其他账号。目标 `get` 失败时保留错误 code、message 和 request ID；只有用户另行授权后才能扩大范围。
+- 用户要求把指定 MCJ 的日志保存到本地路径时，第一条业务命令就是 `arkcli train finetune logs <mcj-id> --output <path>`。不得先 list 全部任务或用脚本遍历；目标命令失败时原样报告，不建议切环境。
+- 用户要求指定 MCJ 的完整 rollout trajectory 时，直接执行 `arkcli train finetune trajectory list <mcj-id> --full`。不存在 `arkcli train trajectory` 路径；无轨迹或未开启记录时保留原错误，不探索 profile、MCP 或其他任务。
+- `logs --follow` 仅在任务活跃且可能继续产生日志时持续轮询；任务已终态时输出当前快照后自动退出，轮询中发现终态且无新日志也会退出。不要再用外部 timeout 作为正常终止机制。
+- `pause` 与 `resume` 是明确的可逆关系：`pause` 将运行任务置为 `Paused`，`resume` 用于恢复 `Paused`；后端允许时也可用 `resume` 重试 `Failed` / `Terminated`，以当前 API 结果为准。
 
 ## 实时信息原则
 
@@ -62,7 +81,15 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 
 只有用户明确确认后，才读取并执行 [`references/ark-finetune-sdk.md`](references/ark-finetune-sdk.md)；由该 reference 负责安装 SDK、准备配置或代码并提交任务。用户拒绝时不要安装、不要提交。
 
-## 通用执行规则
+## 关键客户端校验
+
+- 用户给出模型名和训练类型询问“精调/SFT/LoRA 价格”时，首选且必须执行 `arkcli train finetune pricing --model <model> --type <type>`。不要改走通用 `arkcli pricing models`：通用账单目录不会按目标模型交叉校验训练方法能力。
+- 显式选择训练方法时，必须用精确的模型版本调用 `models finetune-config <model> <version> --type <type>`。该命令会先按同版本 `FinetuneTypes` 校验能力；不支持时停止，不继续询价、estimate 或创建任务。
+- 手动分页时，`train finetune list --page-number` 必须 `>=1`，`--page-size` 必须在 `1-100`；第 2 页及以后超出当前过滤条件对应的 `total_count` 时是参数错误，不要把空页当成有效结果。
+- 同时传入 `train finetune metrics --from-step` 和 `--to-step` 时，`to-step` 必须严格大于 `from-step`；非法区间应在查询指标名称或曲线前停止。
+- `train finetune pricing --billing-method token` 按 Token 计费项查询；`instance` 必须提供精确的 `--model-version` 和 `--type`，并保持超参与后续创建一致。实例结果只有 `price_complete=true` 才能作为完整小时价范围；否则必须报告 `missing_flavor_ids`。
+
+## 守卫与通用执行规则
 
 1. 运行 `arkcli auth status`，认证失败时按 shared skill 恢复。
 2. 读操作可直接执行；上传文件、创建任务、产生费用和破坏性操作必须遵守确认规则。
@@ -70,6 +97,8 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 4. 输出区分事实来源：CLI/API 返回值、服务端校验结果、以及本地粗略估算。
 5. 不打印凭证、完整训练日志或大型轨迹内容；大结果写入文件后只提取必要字段。
 
-## 相关文档
+## 参考与相关文档
 
 <https://www.volcengine.com/docs/82379/1099350>
+
+维护者评测见 [`references/evals.md`](references/evals.md)。

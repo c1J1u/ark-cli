@@ -93,13 +93,13 @@ arkcli api arkruntime.generate_images_stream \
 
 | 场景 | 为什么 | 替代方案 |
 |---|---|---|
-| 视频生成 (`seedance-*` / `--modality video`) | 视频走异步 task + poll 模型，无 SSE 通道 | 不传 `--stream`；用 `+gen` 默认轮询 |
+| 解析为 video 的模型/Endpoint（或显式 `--modality video`） | 视频走异步 task + poll 模型，无 SSE 通道 | 不传 `--stream`；用 `+gen` 默认轮询 |
 | 同步等待累计结果 | `--stream` 模式下 stdout 是 NDJSON 流，不输出累计 GenerateOutput | 不传 `--stream`；走默认同步路径 |
 
 ## 常见错误
 
 | 现象 | 原因 |
 |---|---|
-| `--stream only applies to image generation tasks` | 模型是视频族 (`seedance-*`)，或 `--modality video` 显式指定 |
+| `--stream only applies to image generation tasks` | 结构化元数据把模型/Endpoint 解析为 video，或 `--modality video` 显式指定 |
 | 流式输出第一行就是 `partial_failed` 后再无输出 | 上游真正失败了；看 `error_code` 字段；尤其常见于 `--size 1024x1024` 这种小尺寸 |
 | 看不到 `completed` 事件 | `--image-count 1` 时服务端可能不发 completed，单张就是终结；多张才会发 |

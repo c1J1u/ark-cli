@@ -14,9 +14,9 @@
 ```
 profile.Type:
   platform   → ListEndpoints (PageAll) 列所有 active endpoint, 按 modality
-               过滤 (text=非 ContentGeneration; image=seedream-*; video=seedance-*;
-               custom model 走 unknown 放行避免错杀, 见 internal/service/
-               inferendpoint/endpoint_modality.go)
+               过滤 (Endpoint.ModelReference.FoundationModel.name
+               → GetFoundationModel → task_types/filter_task_types;
+               unknown 保留但标 modality_confidence=unknown 并在 stderr 告警)
   agent-plan
     text     → ListAgentPlanLatestModel
     image    → AgentPlanImageModels  (硬编 console snapshot)
@@ -31,6 +31,22 @@ profile.Type:
     text     → Coding Plan 模型 + team_seat
     image/video → platform Endpoint；team_seat 不可调用，required_overrides=["api_key"]
 ```
+
+## Endpoint 模态解析契约
+
+`resources list` 对 platform Endpoint 使用控制面的结构化关系：
+
+```text
+Endpoint ID
+  -> ModelReference.FoundationModel.name
+  -> GetFoundationModel
+  -> task_types / filter_task_types
+  -> text | image | video | unknown
+```
+
+- Endpoint 名称、FoundationModel `name` 和 DisplayName 都是标识或展示字段，不是能力证据。
+- 国内 `seedream` / `seedance` 前缀可以作为人类示例，但禁止作为代码或 Skill 的 image/video 路由规则。
+- 无法取得模型元数据、任务类型未知或结果冲突时标记为 `unknown`。列表会保留该 Endpoint 并提示人工核对；设为模态默认值和真正发起生成时仍需通过权威解析或显式 `--modality`，不能静默猜测。
 
 ## 输出形态
 
@@ -73,20 +89,32 @@ arkcli resources resolve <endpoint-id> --format json
   "resource_region": "cn-beijing",
   "resource_kind": "endpoint",
   "data_plane": "platform",
-  "model_id": "<bound-model-id>",
+  "endpoint_model_type": "CustomModel",
+  "model_id": "cm-...",
+  "model_name": "<custom-model-name>",
+  "custom_model_id": "cm-...",
+  "base_model_id": "<foundation-model-id>",
+  "base_model_name": "<foundation-model-name>",
+  "base_model_version": "<foundation-model-version>",
   "input_modalities": ["text"],
-  "output_modalities": ["video"],
-  "supported_workflows": ["gen"],
-  "generation_modality": "video",
+  "output_modalities": ["text"],
+  "supported_workflows": ["chat"],
+  "generation_modality": "unknown",
   "requires_user_intent": false,
-  "resolution_source": "endpoint_and_model_metadata"
+  "resolution_source": "endpoint_custom_model_and_foundation_metadata"
 }
 ```
 
-- 解析先读 Endpoint 绑定，再读模型的 task/API/modality 元数据。
+- 解析必须先读 `endpoint_model_type`，不能因为 Custom Model Endpoint 同时携带
+  FoundationModel 引用就把后者当成真实绑定。
+- Custom Model Endpoint 中，`model_id == custom_model_id` 是实际绑定身份；
+  `base_model_*` 仅表达训练 lineage，并为 task/API/modality 提供权威能力元数据。
+- Foundation Model Endpoint 继续使用原契约：`model_id` 是基础模型 ID，不输出
+  `custom_model_id`。
 - `resource_region` 是 Endpoint 权威 region，可用于 Endpoint + API Key 时派生 Base URL。
 - `requires_user_intent=true` 表示同一资源可服务多个候选工作流，最终由用户任务选择。
-- `resolution_warnings` 非空或模态为 `unknown` 时，不要从 Endpoint ID / 模型名猜。
+- `resolution_warnings` 非空或模态为 `unknown` 时，保留已知绑定身份，但不要从
+  Endpoint ID、Custom Model 名或基础模型名猜能力与工作流。
 
 ## 跟旧 list 形态的差异（0.1.16 前）
 

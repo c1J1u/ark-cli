@@ -18,6 +18,7 @@ arkcli infer endpoint delete <endpoint-id> [flags]
 
 | Flag | Type | Description | Required |
 |------|------|-------------|----------|
+| `--dry-run` | bool | Emit the local `DeleteEndpoint` Client Preview without reading or deleting the endpoint | No |
 | `--yes` | bool | Skip the interactive Y/N prompt (TTY only). **Non-interactive mode: this flag does NOT authorize deletion** — set `ARKCLI_ALLOW_HEADLESS_DELETE=1` instead. | No |
 | `-h`, `--help` | | help for delete | No |
 
@@ -46,13 +47,9 @@ agent（Claude Code / OpenCode 等）通过 skill 调用 `infer endpoint delete`
 
 - 交互式真人终端直接 `arkcli infer endpoint delete <id>`，按提示确认即可。
 
-### dry-run
-
-`--dry-run` 是只读预演：先 `GetEndpoint` 拿详情展示，不调真删 API、不弹确认。火山 `delete_endpoint` 不支持服务端 dry-run（raw request 只有 `Id`），故用客户端模拟。
-
-```bash
-arkcli infer endpoint delete <id> --dry-run
-```
+`--dry-run` 只在客户端输出 `DeleteEndpoint` 请求计划，不调用 `GetEndpoint` 或
+`DeleteEndpoint`，也不进入确认门。预览只证明本地参数可构造，不证明 Endpoint
+存在、状态允许删除或服务端会受理。
 
 ### 删除前建议
 
@@ -63,7 +60,6 @@ arkcli infer endpoint delete <id> --dry-run
 | Flag | Type | Description |
 |------|------|-------------|
 | `--debug` | | Print request and response debug details to stderr |
-| `--dry-run` | | Preview request metadata without executing when supported |
 | `--format` | string | Output format: json (default "json") |
 | `--page-all` | | Automatically fetch all pages when supported |
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |

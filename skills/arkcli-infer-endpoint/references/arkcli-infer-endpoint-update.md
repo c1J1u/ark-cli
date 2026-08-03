@@ -26,6 +26,7 @@ arkcli infer endpoint update <endpoint-id> [flags]
 | `--tpm` | int | Rate limit: tokens per minute (must be paired with `--rpm`) | No |
 | `--cg-concurrent-requests` | int | ContentGeneration: max concurrent requests (image-generation endpoints) | No |
 | `--cg-create-task-rpm` | int | ContentGeneration: CreateTask RPM (image-generation endpoints) | No |
+| `--dry-run` | bool | Emit a local `UpdateEndpoint` Client Preview without calling the API | No |
 | `-h`, `--help` | | help for update | No |
 
 ## Global Flags
@@ -33,7 +34,6 @@ arkcli infer endpoint update <endpoint-id> [flags]
 | Flag | Type | Description |
 |------|------|-------------|
 | `--debug` | | Print request and response debug details to stderr |
-| `--dry-run` | | Validate locally and print the payload that would be sent, without calling the API |
 | `--format` | string | Output format: json (default "json") |
 | `--page-all` | | Automatically fetch all pages when supported |
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |

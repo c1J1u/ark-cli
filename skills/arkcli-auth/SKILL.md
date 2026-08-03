@@ -12,6 +12,7 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与共享安全规则**
 **CRITICAL — 用户目标是其他业务命令时，必须先判断是不是被认证阻塞，再决定是否进入本 skill。**
+**CRITICAL — `auth` 是身份/TTY 工作流，全域不注册 `--dry-run`；不要生成该 flag。**
 
 **⚠️ 0.1.16 变化总览（必读）**：
 1. SSO 登录引入 **Gate 1+2**：浏览器流后比对 SSO trn 与 `is_default profile.OwnerTrn`，4-case 分别走 `BuildFirstProfile` (新建) / `GUIDE_SKIP` (复用) / 提示切 default / 提示新建。详见 `docs/volc-sso.md`。

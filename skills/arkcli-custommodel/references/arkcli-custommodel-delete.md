@@ -27,7 +27,7 @@ arkcli models custommodel delete cm-xxxxx --yes
 |------|------|------|------|
 | `<id>` | 是 | string | 自定义模型 ID `cm-xxxxx` |
 | `--yes` | 否 | bool | 跳过 [Y/N] 交互确认 |
-| `--dry-run` | 否 | bool | 全局 flag：预览删除请求，不实际删除，也不弹二次确认 |
+| `--dry-run` | 否 | bool | 命令本地 Client Preview：预览删除请求，不联网、不删除，也不弹二次确认 |
 
 **注意**：
 - 删除**不可逆**——同 ID 不会复用；已部署 endpoint 的引用会立即失效

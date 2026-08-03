@@ -118,7 +118,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 - 禁止输出完整 AK/SK、token、secret
 - 写入、删除、切换配置前需要确认用户意图
 - 只有已注册 Action 才能通过 `arkcli api` 调用
-- 涉及创建 Endpoint、修改 profile、清理凭证等操作时，优先建议先用只读命令或 `--dry-run` 验证
+- 涉及创建 Endpoint、修改 profile、清理凭证等操作时，先看叶子命令 `--help`：支持 Client Preview 才能用 `--dry-run`；不支持时改用只读命令核对并取得明确确认，绝不生成不存在的 flag
 
 ## 二次确认错误处理（human-in-the-loop）
 
@@ -150,6 +150,6 @@ arkcli profile use <name>                                    # 切换默认 prof
 - [arkcli-config](../arkcli-config/SKILL.md) — profile、base-url、region 配置排障
 - [arkcli-api-explorer](../arkcli-api-explorer/SKILL.md) — 产品命令未覆盖时的 raw API 兜底入口
 - [references/profile-defaults.md](references/profile-defaults.md) — profile 默认资源、漂移检测、跨模态
-- [references/execution-context.md](references/execution-context.md) — 五类 Profile × 三种模态、临时 Key/Base URL/Endpoint 组合与 dry-run 边界
+- [references/execution-context.md](references/execution-context.md) — 五类 Profile × 三种模态、临时 Key/Base URL/Endpoint 组合与 Client Preview 边界
 - [references/global-flags.md](references/global-flags.md) — 常用全局 flags 速查
 - [references/troubleshooting.md](references/troubleshooting.md) — 故障分流与能力边界

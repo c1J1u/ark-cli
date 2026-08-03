@@ -18,6 +18,7 @@ arkcli infer endpoint start <endpoint-id> [flags]
 
 | Flag | Type | Description | Required |
 |------|------|-------------|----------|
+| `--dry-run` | bool | Emit a local `StartEndpoint` Client Preview without calling the API | No |
 | `-h`, `--help` | | help for start | No |
 
 ## Global Flags
@@ -25,7 +26,6 @@ arkcli infer endpoint start <endpoint-id> [flags]
 | Flag | Type | Description |
 |------|------|-------------|
 | `--debug` | | Print request and response debug details to stderr |
-| `--dry-run` | | Preview request metadata without executing when supported |
 | `--format` | string | Output format: json (default "json") |
 | `--page-all` | | Automatically fetch all pages when supported |
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |

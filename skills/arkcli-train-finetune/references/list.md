@@ -14,7 +14,7 @@ arkcli train finetune list [flags]
 | `--phase` | 按阶段过滤，可重复 |
 | `--customization-type` | 按后端训练类型过滤，可重复；不确定枚举时查 `--help` |
 | `--create-time-after`、`--create-time-before` | 按创建时间过滤，使用 RFC3339 |
-| `--page-size`、`--page-number` | 手动分页 |
+| `--page-size`、`--page-number` | 手动分页；页码默认 1 且必须 `>=1`，每页默认 100 且必须在 `1-100` |
 | `--page-all`、`--page-limit` | 自动分页；必须设置合理上限 |
 | `--sort-by`、`--sort-order` | 排序 |
 | `--transform` | 提取单字段；复杂投影用 JSON 工具处理 |
@@ -36,6 +36,8 @@ arkcli train finetune list --help
 - 分页和排序
 
 3. 用户要求“全部”时使用当前 CLI 支持的自动分页参数，并设置合理页数上限。不要无界抓取。
+
+手动分页请求第 2 页及以后时，CLI 会先获取符合当前过滤条件的 `total_count`；请求页的起始位置超过总数会直接返回参数校验错误，最后一个不满整页的页码仍然合法。
 
 4. 输出精简表格或摘要，优先包含：
 

@@ -13,6 +13,7 @@ metadata:
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与命令选择顺序**
 
 **CRITICAL — 一旦确定走 `profile create`、`profile delete` 或 `profile project`（重选 project 会重命名/重派生 platform profile），必须先复述对 `config.yaml` 的影响并征得用户确认；其他写操作（`use` / `set-default` / `keys use` / `keys refresh` / `models refresh` / `rename`）执行前也要复述目标 profile 名。**
+**CRITICAL — `profile` 是本地身份切面管理，全域不注册 `--dry-run`；用 `show/list` 检查并通过明确确认保护写操作。**
 
 ## 使用原则
 

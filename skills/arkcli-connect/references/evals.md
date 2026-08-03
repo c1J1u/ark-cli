@@ -1,6 +1,6 @@
 # arkcli-connect 最小评估用例
 
-目标：验证本 skill 在「该唤起 / 项目级安装 / 不该唤起 / 子命令分流 / 破坏性守卫」五个维度上行为稳定，并且不让 Agent 幻觉出不存在的 `+connect install / setup / sync / remove` 子命令。
+目标：验证本 skill 在「该唤起 / 项目级安装 / 不该唤起 / 子命令分流 / 破坏性守卫 / catalog 收敛」六个维度上行为稳定，并且不让 Agent 幻觉出不存在的 `+connect install / setup / sync / remove` 子命令。
 
 ## 1) 该唤起（Trigger）— 安装
 
@@ -14,7 +14,8 @@
 - 路由到 `arkcli-connect`
 - 推荐 `arkcli +connect`（默认行为就是安装；**没有** `+connect install` 子命令）
 - 建议先 `arkcli +connect list` 做预检
-- 提醒同名 skill 目录会被**覆盖**（先 `rm -rf` 再复制，不合并）
+- 说明当前 CLI catalog 的精确官方名称会覆盖所有现有同名目录，不受 owner 或摘要影响
+- 说明不在当前 catalog、也未被旧 manifest 管理的其他不同名目录会保留
 - **不要**给出 `arkcli +connect uninstall`
 
 ## 2) 该唤起（Trigger）— 项目级 / 自定义 skills 目录安装
@@ -55,8 +56,9 @@
 期望行为：
 
 - 路由到 `arkcli-connect`
-- 推荐 `arkcli +connect uninstall`，但**先要求用户明确确认**：哪些 agent、是否接受不可逆删除
-- 说明 uninstall 会 `rm -rf` 同名 skill 目录、会从所有检测到的 agent 一起清
+- 推荐 `arkcli +connect uninstall`，但先确认作用于哪些 agent
+- 说明默认只删除 ownership manifest 记录且摘要未变化的 managed Skills，用户自管同前缀条目保持不动
+- 只有用户明确要求清理全部历史同前缀条目时，才在二次确认后给出 `arkcli +connect uninstall --purge-prefix`
 - 建议先 `arkcli +connect list` 看清范围
 - 不要直接执行（破坏性）
 
@@ -89,8 +91,18 @@
 
 - `arkcli +connect --path .claude/skills`
 - `arkcli +connect uninstall --path .claude/skills`
+- `arkcli +connect uninstall --purge-prefix`
+- `arkcli +connect uninstall --path .claude/skills --purge-prefix`
 
 ## 7) 配套机器评测
+
+收敛评测：
+
+- 当前 catalog 中的官方 Skill 即使未被 manifest 管理或已被用户修改，也必须被当前版本覆盖
+- 旧 manifest 管理、但已退出当前 catalog 的 Skill 即使被用户修改，也必须事务性删除
+- 历史 `arkcli-managed-agent` 应按上一条自然退休，当前 `arkcli-agent` 被安装并认领，不使用 BytePlus 产品特判
+- 不在当前 catalog、也未被旧 manifest 管理的其他 `ark-` / `arkcli-` 目录必须保持不变
+- 覆盖、退休和 manifest 更新必须同事务提交；故障注入后不得留下半套新旧目录
 
 机器评测资产位于 `tests/skills/arkcli-connect/`，复跑：
 

@@ -12,11 +12,11 @@ metadata:
 
 **前置：** 先用 Read 读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 获取共享认证/配置/写操作守卫规则。
 
-**新增 flag `--set-default <modality>`**: 部署成功后自动把新 endpoint 设为 active profile 该 modality (`text` / `image` / `video`) 的默认资源。仅在 `--dry-run` 之外 + 用户明确传 modality 时生效；失败仅 stderr warn，不阻断部署主流程。详见 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md)。
+**新增 flag `--set-default <modality>`**: 部署成功后自动把新 endpoint 设为 active profile 该 modality (`text` / `image` / `video`) 的默认资源。仅在真实部署成功且用户明确传 modality 时生效；失败仅 stderr warn，不阻断部署主流程。详见 [`../arkcli-shared/references/profile-defaults.md`](../arkcli-shared/references/profile-defaults.md)。
 
-**写操作 + 计费**：`+deploy` 创建在线推理 Endpoint 是真实写操作，会产生计费资源。**任何执行前必须先 `--dry-run` 或与用户显式确认**，即使用户语气紧急。
+**写操作 + 计费**：`+deploy` 创建在线推理 Endpoint 是真实写操作，会产生计费资源。该工作流依赖在线探测，**不支持 `--dry-run`**；执行前必须与用户显式确认最终参数。
 
-**模型开通是独立计费写动作，非交互环境一律不自动开通**：若目标基础模型尚未开通，`+deploy` 会触发"开通模型"（账号级计费写）。**在 agent / CI / 管道这类非 TTY 环境，开通被硬拒——`--yes` 也不放行**（`--yes` 只在真人交互终端里用于跳过 `[y/N]`）。命中时 CLI 返回 `model_activation_required` + console 链接，你**必须结束本轮、把"开通（计费）"这件事连同链接交还给真人**，由真人在交互终端确认或在网页 console 开通。**严禁自己补 `--yes` / `echo Y` / 设 `ARKCLI_ALLOW_HEADLESS_ACTIVATION` 替用户开通**——你打印一句"请确认"然后同一轮自己加 `--yes` 跑掉，等于没问。`ARKCLI_ALLOW_HEADLESS_ACTIVATION=1` 只留给真·无人值守自动化（CI 流水线），不是 agent 该设的。`--dry-run` 预演**永不开通**。
+**模型开通是独立计费写动作，非交互环境一律不自动开通**：若目标基础模型尚未开通，`+deploy` 会触发"开通模型"（账号级计费写）。**在 agent / CI / 管道这类非 TTY 环境，开通被硬拒——`--yes` 也不放行**（`--yes` 只在真人交互终端里用于跳过 `[y/N]`）。命中时 CLI 返回 `model_activation_required` + console 链接，你**必须结束本轮、把"开通（计费）"这件事连同链接交还给真人**，由真人在交互终端确认或在网页 console 开通。**严禁自己补 `--yes` / `echo Y` / 设 `ARKCLI_ALLOW_HEADLESS_ACTIVATION` 替用户开通**——你打印一句"请确认"然后同一轮自己加 `--yes` 跑掉，等于没问。`ARKCLI_ALLOW_HEADLESS_ACTIVATION=1` 只留给真·无人值守自动化（CI 流水线），不是 agent 该设的。
 
 **实名前置（开通类硬闸门）**：`+deploy` 会触发开通模型，**第一步**先 `arkcli auth status` 读 `volc_sso.identity.verified`——`false` 即停并把实名页 `https://console.volcengine.com/user/authentication/detail/` 贴给用户、暂停等待（详见 [`../arkcli-auth/references/realname-gate.md`](../arkcli-auth/references/realname-gate.md)）。**不要**先试 `+deploy`、撞到 model-id 无效 / 模型未开通报错再回头查实名——那些报错会把你带偏。
 
@@ -33,25 +33,28 @@ metadata:
 
 | 调用 | 说明 |
 |------|------|
-| `arkcli +deploy --name <ep-name> --model <model-id> [...]` | 创建 Endpoint；不加 `--dry-run` 即真实创建 |
+| `arkcli +deploy --name <ep-name> --model <model-id> [...]` | 创建 Endpoint；执行即真实创建 |
 
 > ⚠️ **没有** `arkcli deploy ...` / `arkcli endpoint create` / `arkcli +deploy create` 等子命令。整个能力就是一个 `+deploy` 命令加 flag。
 
 ## 反幻觉清单
 
 - `--name`、`--model` 必填
+- 模型版本、价格与额度只能引用本轮只读命令返回的结构化结果；**不得编造模型版本或价格**。查询失败或未登录时，明确标为“尚未核实”，不要用“典型价格”或猜测值代替
+- **查询失败后不得补全依赖字段**：认证、模型、价格或资源查询任一失败时，保留对应字段为“尚未核实”，并明确指出失败来源；不得继续断言具体金额、空闲计费策略、精确模型版本或“没有现存 Endpoint”
+- 检查已有 Endpoint 时使用 `arkcli resources list --format json` 后按返回字段筛选；**不得添加未记录的 `--filter`** 或其他 `resources list --help` 中不存在的 flag
 - JSON 类 flag（`--rate-limit` / `--moderation` / `--intelligent-router` / `--tags` 等）字段名一律 **PascalCase**：`Rpm`、`Tpm`、`Strategy`、`Mode`，不是 `rpm`/`tpm`
-- 独立 `+code-example` 的 flag 是 **`--model`（基础模型名/带版本 id）+ `--lang`**，不是 `--endpoint-id`：`arkcli +code-example --model <id> --lang python`（细节见 [`../arkcli-code-example/SKILL.md`](../arkcli-code-example/SKILL.md)）
+- 独立 `+code-example` 的 flag 是 **`--model`（基础模型名/带版本 id）+ `--language`**，不是 `--endpoint-id`：`arkcli +code-example --model <id> --language python`（细节见 [`../arkcli-code-example/SKILL.md`](../arkcli-code-example/SKILL.md)）
 - `+deploy` 创建成功后会**自动**把示例渲染到 `./ark-examples/<ep-id>/`（按 ep-id）；想按基础模型名另出一份则跑 `+code-example`
 - 模型未开通时 `+deploy` 的开通在**非 TTY 下被硬拒、`--yes` 也不放行**；**禁止自己补 `--yes` / `echo Y` / 设 `ARKCLI_ALLOW_HEADLESS_ACTIVATION`**，必须把开通（计费）交还真人在终端 / console 处理
 - 语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互）广场可搜不等于可部署；命中这类模型时停在 `arkcli models search <keyword>`，不要给 `+deploy` 命令
 
 ## 路由判断
 
-- 用户已有模型 ID + 想正式部署 → `arkcli +deploy --name <ep> --model <id> --dry-run`，预演无误后去掉 `--dry-run` 真实创建
+- 用户已有模型 ID + 想正式部署 → 复述 `model/name/region` 并确认后执行 `arkcli +deploy --name <ep> --model <id>`
 - 用户要部署 / 接入语音模型，或模型名看起来是 `*-tts-*` / `*-asr-*` / `seedasr-*` → 转 [`arkcli-models`](../arkcli-models/SKILL.md) 说明"只支持广场检索，不支持 Endpoint 创建"
-- 用户传入自定义模型 ID（`cm-xxxxx`）时，真实创建前会先查是否已有引用该自定义模型且状态为 `Running` 的 Endpoint；若有则直接复用并输出已有 `endpoint-id`，不会再创建第二个计费资源。`--dry-run` 仍按创建预演执行
-- 用户语气紧急要求"立刻创建" → **不要跳过确认**，仍然先 `--dry-run` 并复述 `model/name/region`
+- 用户传入自定义模型 ID（`cm-xxxxx`）时，真实创建前会先查是否已有引用该自定义模型且状态为 `Running` 的 Endpoint；若有则直接复用并输出已有 `endpoint-id`，不会再创建第二个计费资源。该在线复用决策也是 `+deploy` 无法提供可靠离线 Client Preview 的原因之一
+- 用户语气紧急要求"立刻创建" → **不要跳过确认**，复述 `model/name/region`
 - 已通过 `arkcli infer endpoint create` 拿到 `Id` → **不要**再 `+deploy` 创建第二个，转 `arkcli-infer-endpoint`；要调用示例转 `arkcli-code-example`（按模型名生成）
 
 ## 反触发（路由到别处，附完整命令避免下游幻觉）
@@ -59,7 +62,7 @@ metadata:
 | 用户意图 | 路由到 | 完整示范命令 |
 |---------|--------|------------|
 | 只想试模型效果 / 一次性生成 | `arkcli-chat` / `arkcli-gen` | `arkcli +chat --model <id> '...'` 或 `arkcli +gen --model <id> '...'` |
-| 要某模型的调用示例 | `arkcli-code-example` | `arkcli +code-example --model <model-id> --lang python`（按模型名/版本生成；缺失版本降级到静态示例或控制台示例页） |
+| 要某模型的调用示例 | `arkcli-code-example` | `arkcli +code-example --model <model-id> --language python`（按模型名/版本生成；缺失版本降级到静态示例或控制台示例页） |
 | 模型 ID 未定 | `arkcli-models` | `arkcli models search <keyword>` 或 `arkcli models list` |
 | 语音模型部署 / TTS 接入点 / ASR Endpoint | `arkcli-models` | `arkcli models search <keyword>`（只做广场发现；当前不支持 Endpoint 创建） |
 | 401 / 鉴权失败 | `arkcli-auth` | `arkcli auth status`，必要时 `arkcli auth login` |
@@ -68,9 +71,9 @@ metadata:
 
 ## 典型链路
 
-1. **从模型选择到正式接入**：`arkcli auth status` → `arkcli models search/get` → `arkcli +deploy ... --dry-run` → `arkcli +deploy ...`（自定义模型若已有 Running Endpoint 会复用）
-2. **从试用切换到正式接入**：`arkcli +chat` / `arkcli +gen` 验证效果 → `arkcli +deploy ... --dry-run` → 真实创建
-3. **创建后做调用集成**：`+deploy` 已把示例自动写到 `./ark-examples/<ep-id>/`，直接用即可；想按基础模型名另出一份跑 `arkcli +code-example --model <model-id> --lang <lang>`（部分版本无示例时降级到 `ark-examples/` 静态示例或控制台示例页）
+1. **从模型选择到正式接入**：`arkcli auth status` → `arkcli models search/get` → 复述并确认最终模型、名称、计费影响 → `arkcli +deploy ...`（自定义模型若已有 Running Endpoint 会复用）
+2. **从试用切换到正式接入**：`arkcli +chat` / `arkcli +gen` 验证效果 → 复述最终参数并确认 → 真实创建
+3. **创建后做调用集成**：`+deploy` 已把示例自动写到 `./ark-examples/<ep-id>/`，直接用即可；想按基础模型名另出一份跑 `arkcli +code-example --model <model-id> --language <lang>`（部分版本无示例时降级到 `ark-examples/` 静态示例或控制台示例页）
 
 详细 flag、JSON 字段示例、错误码见 [`references/arkcli-deploy.md`](references/arkcli-deploy.md)。
 

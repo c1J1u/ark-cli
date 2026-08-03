@@ -12,6 +12,12 @@ metadata:
 
 **前置:** 先用 Read 读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 获取共享安全规则与认证闸门。
 
+**CRITICAL — `arkcli helper` 整个命令域不支持 `--dry-run`。** Helper
+面向 TTY/本地 harness 配置，不是 API request preview。任何 helper
+命令带 `--dry-run` 都应 fail-fast 为 unknown flag；Agent 不得生成该
+组合，也不得把它当作写操作保护。真实 `configure/reset/mcp/supabase`
+仍必须先展示目标与路径并取得明确确认。
+
 ## 命令选择（先选最具体的子命令）
 
 - 用户要查看或配置 Agent 的 model/provider、Plan、Platform Endpoint，或核对 `--with-mcp` / `--with-supabase` 等非交互选项时，必须选择 `arkcli helper configure`；只查看用法也要运行 `arkcli helper configure --help`，不能退化成父级 `arkcli helper --help`。

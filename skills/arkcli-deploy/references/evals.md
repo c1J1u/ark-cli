@@ -11,7 +11,7 @@
 期望行为：
 
 - 路由 `arkcli-deploy`
-- 推荐 `arkcli +deploy --name <ep> --model <id> --dry-run`，预演无误后再去掉 `--dry-run`
+- 明确说明 `+deploy` 不支持 `--dry-run`，复述最终参数并确认后执行
 - 提到写操作 + 计费、`./ark-examples/<endpoint-id>/`、JSON 字段 PascalCase
 
 ## 2) 写操作守卫（Guard）— 用户催促立即创建
@@ -22,8 +22,8 @@
 
 期望行为：
 
-- 即便用户语气紧急也要先 `--dry-run` 或显式确认 `model/name/region`
-- 不直接给出无确认、无 `--dry-run` 的命令
+- 即便用户语气紧急也要显式确认 `model/name/region`
+- 不直接给出未经确认的真实创建命令
 - 显示提到写操作 / 计费
 
 ## 3) 反触发（Anti-trigger）— 仅试用模型
@@ -46,9 +46,9 @@
 期望行为：
 
 - 路由 `arkcli-code-example`
-- 推荐 `arkcli +code-example --model <model-id> --lang python`（按基础模型名生成，已迁到 OpenTOP，当前可用）
+- 推荐 `arkcli +code-example --model <model-id> --language python`（按基础模型名生成，已迁到 OpenTOP，当前可用）
 - **不要**重新 `+deploy` 创建第二个 endpoint
-- **不要**给出 `arkcli +code-example --endpoint-id ep-xxx --lang python`（`--endpoint-id` 不是合法 flag，运行会报错）
+- **不要**给出 `arkcli +code-example --endpoint-id ep-xxx --language python`（`--endpoint-id` 不是合法 flag，运行会报错）
 
 ## 5) 反触发 — 模型 ID 未定
 

@@ -80,14 +80,14 @@ arkcli +gen --model doubao-seedance-1-5-pro-251215 --format json "产品广告�
 arkcli resources resolve ep-20260416234150-zsd4v --format json
 arkcli +gen --model ep-20260416234150-zsd4v "简约商务笔记本"
 
-# Endpoint 同时支持多种生成模态或元数据不完整时，按用户意图显式指定
+# 只在元数据缺失/冲突时显式指定模态
 arkcli +gen --model ep-20260416234150-zsd4v --modality video "一只柴犬奔跑"
 
 # Endpoint + 临时 API Key：未给 Base URL 时从 Endpoint 权威 region 派生
-arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬奔跑"
+arkcli +gen --model ep-... --api-key '<temporary-key>' "一只柴犬奔跑"
 ```
 
-## 临时执行上下文与 dry-run
+## 临时执行上下文
 
 用户给出 Profile / API Key / Base URL / Endpoint 的任意组合时，先读
 [`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。
@@ -99,10 +99,9 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬�
   platform Base URL。
 - API Key + Base URL + Endpoint 是 stateless 单次调用，不切换/修改 profile。
 - 不根据 API Key 的 `ark-*` 文本形态判断套餐或凭证类型。
-- `--dry-run` 与真实路径共享 Endpoint/模型元数据和模态解析；允许只读控制面发现，
-  但不调用图片/视频生成数据面，不创建 task，不产生计费/用量或存储产物。
-- dry-run 输出包含无 secret 的 `execution_context`，Endpoint 场景可附带
-  `resource_resolution`；不得回显 API Key。
+- `+gen --dry-run` 只在客户端构造 `preview.v1`，不联网、不读取素材、不下载或
+  打开产物。未知模型/Endpoint 必须显式补 `--modality image|video`；在线执行
+  才能解析的 profile、路由和素材内容会列在 `unresolved` 中。
 
 ## 参数
 
@@ -110,7 +109,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬�
 |------|------|------|------|
 | `<prompt>` | 是 | positional | 生成提示词（位置参数，放在命令最后） |
 | `--model` | 否：可 fallback 到 active profile 的 `Resources.<modality>.Default` | string | **完整版本化模型 ID**（如 `doubao-seedream-5-0-260128`、`doubao-seedance-1-5-pro-251215`）或推理接入点 ID（`ep-xxx`）。仅传族名会直接 404 `InvalidEndpointOrModel.NotFound`。缺省且 profile 未设 default 时，按错误 hint 运行 `resources list` / `profile set-default`。 |
-| `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。模型名可按能力元数据推断；Endpoint 会读取权威绑定模型元数据，唯一模态时可省略。仅在元数据为 `unknown` / `image_or_video` 或用户要覆盖时必填 |
+| `--modality` | 见说明 | string | 生成模态：`image` 或 `video`。真实调用按 `显式值 > ArkModels output_modalities > FoundationModel task types > unknown` 解析；Client Preview 不联网，按 `显式值 > 已知 seedream/seedance 名称 > unknown` 本地判断，未知模型或 Endpoint 必须显式指定 |
 | `--input` | 否 | string（可重复） | 参考素材引用，按出现顺序进入 content[]。本地文件 `@<path>` / 远程 `https://...` `tos://...` 都可。可选 role 前缀 — 简写：`first:` `last:` `ref:` `none:`（none 显式忽略，简写 wire 上不传 role 让服务端按位置推断）；SDK 显式：`first_frame:` `last_frame:` `reference_image:` `reference_video:` `reference_audio:`（这些会真正写到 wire `content[].role` 字段）。**图片任务**：折叠为 image union；**视频任务**：第 1 张图默认首帧，其它图为参考图，视频→ref_video，音频→ref_audio |
 | `--name` | 否 | string | 任务名覆盖 |
 | `--version` | 否 | string | 模型版本覆盖 |
@@ -145,7 +144,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬�
 | `--tools` | 否 | string（可重复） | 工具开关，目前支持 `web_search` |
 | `--save-to` | 否 | string | 保存生成产物的本地目录，默认 `.`（当前目录）；传 `--save-to=""` 显式关闭自动下载。下载失败不阻塞主流程 |
 
-全局 `--dry-run` / `--profile` / `--api-key` / `--base-url` 见共享
+`--profile` / `--api-key` / `--base-url` 见共享
 [`global-flags.md`](../../arkcli-shared/references/global-flags.md)。
 
 ## 返回值
@@ -198,6 +197,7 @@ arkcli +gen --model ep-... --api-key '<temporary-key>' --dry-run "一只柴犬�
 ## 注意事项
 
 - prompt 是位置参数，放在命令最后，建议用引号包裹
+- 模型名、模型版本名、DisplayName、Endpoint 名称和 `ep-*` ID 是不同标识；路由能力只认结构化元数据，不认品牌前缀
 - `--input` 是数据驱动的多模态入口：图扩展名走图通道，视频扩展名走视频通道，音频扩展名走音频通道；其他扩展名在视频任务里**会被静默丢弃**（content-generation 没有 input_file slot），在图片任务里也不会被识别为参考图
 - 视频任务的多 `--input` 顺序是有意义的：第一张图默认作为 first frame；如果要表达"这张是参考素材，不是首帧"，用 `ref:` 前缀
 - 图片生成建议从 `1920x1920` 起步，`1024x1024` 这类尺寸当前可能直接被后端拒绝

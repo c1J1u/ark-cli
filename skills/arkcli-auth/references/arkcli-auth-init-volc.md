@@ -12,12 +12,12 @@
 
 ```bash
 arkcli init-volc            # 消费 VOLC_INIT_*, 零交互, 落 platform profile + 设 default
-arkcli init-volc --dry-run  # 只预览将创建的 profile, 不写盘
 ```
 
 - 无参数(`NoArgs`), 全程**零交互**;缺必填环境变量 → 报错退出(非零 exit)
 - 幂等:同账号重跑覆盖同名 profile
-- 不发任何网络请求(STS / API Key / 身份事实都是注入的, 直接落盘)
+- 注入的 STS 落盘后会 best-effort 查询账号主体类型、缺失的 API Key 和 Plan；控制面查询失败只产生 warning，不阻断 platform profile 初始化
+- 该本地初始化命令不注册 `--dry-run`；执行前检查环境变量并明确确认目标 profile
 
 ## 环境变量契约(`VOLC_INIT_*`)
 
@@ -27,7 +27,7 @@ arkcli init-volc --dry-run  # 只预览将创建的 profile, 不写盘
 | `VOLC_INIT_STS_SECRET_KEY` | ✅ | 火山 STS SecretAccessKey | — |
 | `VOLC_INIT_STS_SESSION_TOKEN` | ✅ | 火山 STS SessionToken | — |
 | `VOLC_INIT_ACCOUNT_ID` | ✅ | 火山主账号数字 id | — |
-| `VOLC_INIT_API_KEY` | ✅ | ARK 数据面 API Key | — |
+| `VOLC_INIT_API_KEY` | 可选 | ARK 数据面 API Key；缺失时尝试通过控制面拉取 | 空 |
 | `VOLC_INIT_REGION` | 推荐 | region code, 如 cn-beijing | cn-beijing |
 | `VOLC_INIT_USER_ID` | 推荐 | IAM 子用户数字 id;root 留空 | 空 |
 | `VOLC_INIT_IS_ROOT` | 推荐 | 是否主账号 root:true / false | false |
@@ -41,12 +41,13 @@ arkcli init-volc --dry-run  # 只预览将创建的 profile, 不写盘
 - **STS** → 写 `.env` + identity store, 供控制面 V4 签名(`models` / `resources`)
 - **API Key** → profile 数据面 key, 供 `+chat` / `+gen`
 - **account_id / user_id / is_root** → 持久化为当前 active 身份, 后续命令 cfg 直接读到
+- **identity_type** → 通过 `GetVerifyInfo` 判断并写入当前 Identity Store，固定为 `individual` 或 `enterprise`
 - 产出 profile 名:`platform_<region>_<project|accountwide>`, 设为 default
 
 ## 输出
 
 ```json
-{"ready":true,"profile":"platform_cn-beijing_accountwide","type":"platform","region":"cn-beijing","project":"账号全部资源","identity_key":"volc-2100000001","is_root":false,"has_api_key":true}
+{"ready":true,"profile":"platform_cn-beijing_accountwide","type":"platform","region":"cn-beijing","project":"账号全部资源","identity_key":"volc-2100000001","identity_type":"enterprise","is_root":false,"has_api_key":true}
 ```
 
 不回显任何凭证明文。

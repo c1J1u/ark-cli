@@ -52,9 +52,13 @@ metadata:
    - `arkcli api`
 4. 定位契约与必填字段（禁止猜 JSON）：
    - 在代码中查 `internal/apis/<domain>/` 对应的 req/resp 结构体
-5. 只读优先、写操作必须二次确认，然后再执行：
+5. 先用叶子命令的 Client Preview 核对最终 descriptor 和 payload：
+   - `arkcli api <registered-action> --params '{...}' --dry-run`
+   - Preview 是纯本地行为，不登录、不请求后端、不证明权限、配额或资源存在
+6. 只读优先；写操作在 Preview 后仍必须二次确认，然后去掉 `--dry-run` 执行：
    - `arkcli api <registered-action> --params '{...}'`
-6. 输出尽量稳定、减少噪声：
+   - payload 自身的 `"DryRun":true` 是后端字段；未加 CLI `--dry-run` 时仍会发出真实网络请求
+7. 输出尽量稳定、减少噪声：
    - 优先用全局 `--transform '<gjson path>'` 提取关键字段
    - 只有排障需要时才开 `--debug`（会输出请求/响应调试信息到 stderr）
 
@@ -65,6 +69,7 @@ metadata:
 | 产品命令覆盖判断 | 防止误用 `api` | 先 `arkcli <domain> --help` 并对照对应 skill |
 | 认证闸门 | 防止把鉴权问题误判为缺能力 | 先 `arkcli auth status`；失败转 `arkcli-auth` |
 | 契约事实源 | 防止猜参数 | 必须从 `internal/apis/<domain>/` 的 req/resp tag 生成 `--params` |
+| Client Preview | 防止 raw Action 直接执行 | invoke 模式先加本地 `--dry-run`，核对 `steps[0].protocol/target/payload` |
 | 风险确认 | 防止写操作误触发 | 涉及创建/删除/修改/影响费用前，要求用户明确确认 |
 | 噪声控制 | 防止整坨输出污染上下游 | 默认引导 `--transform` 提取关键字段；`--debug` 仅排障打开 |
 
@@ -72,6 +77,7 @@ metadata:
 
 ```bash
 arkcli api --list
+arkcli api model.list_foundation_models --params '{"PageSize":10,"PageNumber":1}' --dry-run
 arkcli api model.list_foundation_models --params '{"PageSize":10,"PageNumber":1}'
 
 # 只提取 items 里的 name（示例 path，按实际输出结构调整）
@@ -84,6 +90,7 @@ arkcli api model.list_foundation_models --params '{"PageSize":10,"PageNumber":1}
 |------|----------|----------|
 | `unknown action "..."` | Action 未注册或拼写错误 | 先 `arkcli api --list`；再在 `internal/apis/` 中确认是否已注册 |
 | `invalid --params JSON: ...` | JSON 不合法（引号/转义/单引号包裹不当） | 确保 `--params` 是合法 JSON；必要时把 JSON 放到文件再用 shell 展开传入 |
+| `api list mode has no request to preview` | 对 `api --list` 使用了 `--dry-run` | list 本身已经是纯本地枚举；移除 `--dry-run` |
 | 输出字段和预期不一致 | 直接猜测了契约 | 先读 [`references/arkcli-api.md`](references/arkcli-api.md) 并查看 `internal/apis/<domain>/` 的 req/resp |
 
 ## 开发约束

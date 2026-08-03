@@ -1,7 +1,7 @@
 ---
 name: arkcli-custommodel
 version: 1.0.0
-description: "arkcli 自定义模型仓库管理：从 TOS 导入自定义模型、查询/筛选自定义模型、查看详情、改名、删除、查询可用量化模式、量化已就绪的模型。当用户需要管理账号下的自传/精调模型（`cm-xxx`），或为 +deploy 准备目标自定义模型时使用。注意：查询火山**公共基础模型**（doubao 等 foundation models）走 arkcli-models；本 skill 只管账号下的自定义模型仓库。"
+description: "arkcli 自定义模型仓库管理：从 TOS 导入自定义模型、查询/筛选自定义模型、查看详情、改名、删除、查询可用量化模式、量化已就绪的模型。任何提到自定义模型 ID（`cm-*`）的管理、部署准备，或要求用 `cm-*` 直接对话/推理/试效果的边界判断，都必须使用本 skill。注意：查询火山**公共基础模型**（doubao 等 foundation models）走 arkcli-models；本 skill 只管账号下的自定义模型仓库。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -14,7 +14,7 @@ metadata:
 **CRITICAL — 所有 `models custommodel` 命令在执行之前，务必先用 Read 工具读取其对应的 reference 文档，禁止直接盲目调用命令。**
 **CRITICAL — 写操作（upload / update / delete / quantize）必须先确认用户意图。删除前必须确认是否还有 endpoint 引用。**
 
-## 使用原则
+## 守卫与使用原则
 
 - 自定义模型相关需求优先使用 `arkcli models custommodel ...`
 - 这些命令虽然是标准 CLI 类型，但实现入口仍然来自 `shortcuts/models/`
@@ -39,6 +39,12 @@ metadata:
 - **从精调任务的 step（`global_step_N`）注册成 `cm-`**(=「导出训练产物」)→ 转 [`../arkcli-train-finetune/SKILL.md`](../arkcli-train-finetune/SKILL.md) 的 `arkcli train finetune artifacts list / export`，**不要**用本 skill 的 `upload`(那是给"用户自己的 TOS 文件"用的,后端 Action `UploadModel`;mcj 输出走 `CreateCustomModel`,完全不同的 API)
 - 已经拿到 endpoint-id 后想管理 endpoint → 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)
 
+## `cm-*` 直接推理边界
+
+- 用户要求“用 `cm-*` 直接对话/推理/试效果”时也必须加载本 skill。明确说明 `cm-*` 是自定义模型资源 ID，不能直接传给 `+chat` / `+gen`；推理前需要单独获得或部署 Endpoint。
+- 该请求本身不授权部署、查询账号下 Endpoint 或发起推理。未经用户继续授权，不执行 `arkcli +deploy`、`arkcli +chat`、`arkcli infer endpoint list`，也不拼接 `jq` 等扫描方案。
+- 只说明边界和下一步选择；用户明确要求继续部署后，才转 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md) 并遵守其确认流程。
+
 ## 核心概念
 
 - 本 skill 统一把 `arkcli models custommodel ...` 管理的资源称为**自定义模型**（CustomModel，ID 形如 `cm-xxxxx`）；它与 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md) 中 `search/list/get` 操作的官方基础模型（FoundationModel）是**两套独立资源**
@@ -59,6 +65,11 @@ metadata:
 - 用户要删除：读 [`references/arkcli-custommodel-delete.md`](references/arkcli-custommodel-delete.md)，先查 `active_endpoints`，确认后再执行
 - 用户要量化：先读 [`references/arkcli-custommodel-available-quantizations.md`](references/arkcli-custommodel-available-quantizations.md)，再读 [`references/arkcli-custommodel-quantize.md`](references/arkcli-custommodel-quantize.md)
 
+## 列表参数与输出契约
+
+- `custommodel list --sort-order` 只接受小写 `asc` / `desc`。收到其他值时应把它视为本地参数错误，不要尝试调用接口或改成其他大小写后盲目重试。
+- 使用 `--format table` 或 `--format csv` 时，每个 `result.items[]` 模型是一行；不要把分页响应根对象或 `result` map 当成模型记录。需要保留完整分页元数据时使用 JSON/YAML。
+
 ## Agent 快速执行顺序
 
 1. 不确定认证状态时，先 `arkcli auth status`
@@ -66,9 +77,10 @@ metadata:
 3. 上传前必填三项：`--name` / `--base-model <foundation-model-id>` / `--tos tos://<bucket>/<prefix>`；缺任一会被服务端拒
 4. `upload` / `quantize` 是异步任务：返回后用 `custommodel get <id>` 轮询 status，**不要原地循环 upload/quantize**
 5. `quantize` 前必跑 `available-quantizations <id>`：不同 base model 支持的量化模式不同，盲传服务端会拒；若用户关心 token / 模型单元等部署形态，优先看返回里的 `supported_inference_types_by_quantization`
-6. `delete` / `update` / `quantize` 是写操作，执行前向用户复述影响范围
-7. `delete` 默认会走 [Y/N] 二次确认；`--yes` 表示跳过本地二确，`--dry-run` 表示只预览不删除。只有用户已经明确确认删除目标和影响范围后，agent 才能把 `--yes` 加到命令里
-8. `get --transform` 是 `custommodel get` 自己的字段白名单，不是全局 GJSON 表达式；要查嵌套路径时不要把它当作全局 `--transform`
+6. `quantize --dry-run` 只输出本地 `preview.v1`，不会调用 `CreateQuantizedCustomModel`；`steps[].payload` 只描述真实请求字段，不应出现后端 `DryRun`。它不是服务端校验，核对后仍需确认再执行真实量化
+7. `delete` / `update` / `quantize` 是写操作，执行前向用户复述影响范围
+8. `delete` 默认会走 [Y/N] 二次确认；`--yes` 表示跳过本地二确，`--dry-run` 表示只预览不删除。只有用户已经明确确认删除目标和影响范围后，agent 才能把 `--yes` 加到命令里
+9. `get --transform` 是 `custommodel get` 自己的字段白名单，不是全局 GJSON 表达式；要查嵌套路径时不要把它当作全局 `--transform`
 
 ## 典型业务链路
 
@@ -85,6 +97,8 @@ auth status → custommodel upload --name X --base-model <fm-id> --tos tos://b/p
 ```
 custommodel get <id>  （确认 status=ready）
         → custommodel available-quantizations <id>  （看支持哪些 mode）
+        → custommodel quantize <id> --quantization <mode> --dry-run
+        → 用户确认量化目标和影响范围
         → custommodel quantize <id> --quantization <mode>
         → custommodel get <new-id>  （量化结果是新 cm-xxxxx，再次轮询）
 ```
@@ -124,7 +138,7 @@ custommodel get <id> --transform 'active_endpoints'  （确认无 endpoint 引�
 | `arkcli models custommodel update <id>` | 改名 / 改描述 |
 | `arkcli models custommodel delete <id> [--yes] [--dry-run]` | 删除（破坏性，不可逆）；默认二确，`--yes` 跳过，`--dry-run` 预览 |
 | `arkcli models custommodel available-quantizations <id>` | 查可用量化模式（quantize 前必跑） |
-| `arkcli models custommodel quantize <id> --quantization <mode>` | 量化（异步） |
+| `arkcli models custommodel quantize <id> --quantization <mode> [--dry-run]` | 量化（异步）；`--dry-run` 仅本地预览，不调用后端 |
 
 ## 常见降级
 

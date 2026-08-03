@@ -45,10 +45,9 @@
 ```bash
 arkcli doctor account                      # 默认，无参
 arkcli doctor account --format json        # 完整结构化 JSON（默认）
-arkcli doctor account --dry-run            # 只打印会调什么，不发实际请求
 ```
 
-> 命令是**只读体检**，未登录也能跑（identity 段照出 `ok=false + reason`，其他段每个 check Reason 写明 `not authenticated`）。
+> 命令本身就是**只读体检**，不注册 `--dry-run`；未登录也能跑（identity 段照出 `ok=false + reason`，其他段每个 check Reason 写明 `not authenticated`）。
 
 ## 第二步：读输出（4 段）
 

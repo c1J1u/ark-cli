@@ -35,9 +35,10 @@ arkcli models custommodel upload \
   --quantization int8 \
   --description "lora-sft on customer support corpus, int8 quantized"
 
-# dry-run 预览请求体（不实际提交）
-arkcli models custommodel upload --name X --base-model Y --tos tos://b/p --dry-run
 ```
+
+`upload` 会启动依赖 TOS 的异步导入，无法在不读取外部状态的条件下给出可靠计划，
+因此不注册 `--dry-run`。复述并确认 `name/base-model/tos/quantization` 后再真实执行。
 
 ## Flags
 
@@ -48,7 +49,6 @@ arkcli models custommodel upload --name X --base-model Y --tos tos://b/p --dry-r
 | `--tos` | 是 | string | TOS URI：`tos://<bucket>/<prefix>`，指向权重目录（bucket 需先在 TOS 控制台创建并上传权重）|
 | `--quantization` | 否 | string | 上传时附带量化模式（也可上传后再单独 `quantize`） |
 | `--description` | 否 | string | 描述，最多 300 字符 |
-| `--dry-run` | 否 | bool | 预览请求体不提交 |
 
 ## Output
 

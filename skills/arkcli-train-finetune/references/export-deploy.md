@@ -24,7 +24,7 @@
 | `arkcli models custommodel available-quantizations <cm-id>` | 查是否能创建新可部署版本 | 量化前必查 |
 | `arkcli models custommodel quantize <cm-id>` | 创建量化新版本 | `--quantization`，异步返回新 `cm-*` |
 | `arkcli infer endpoint capability get --custom-model-id <cm-id>` | 查实际部署能力 | 部署前查询 |
-| `arkcli +deploy` | 创建或复用 Endpoint | 先 `--dry-run`，确认后真实执行 |
+| `arkcli +deploy` | 创建或复用 Endpoint | 不支持 `--dry-run`；复述最终参数并确认后执行 |
 
 ## A. 从 MCJ 选择最佳 Step
 
@@ -42,6 +42,7 @@ arkcli train finetune metrics <mcj-id>
 若任务是全量训练，停止 CLI 导出部署流程并提示：当前 ArkCLI 还不支持对全量训练产物进行部署，需要到控制台完成。不要继续执行 `artifacts export`、custom model 部署或 `+deploy`。
 
 第一次调用 `metrics` 不指定指标，用返回的 `available_metrics` 获取真实名称。大结果使用 `--output` 写入文件，再以结构化 JSON 工具计算，不要人工扫描长序列。
+如果用 `--from-step` 和 `--to-step` 限定区间，`to-step` 必须严格大于 `from-step`。
 
 ### 2. 选择用于排名的效果指标
 
@@ -168,7 +169,7 @@ arkcli infer endpoint capability get --custom-model-id <cm-id>
 
 用户选择后读取并遵循 `arkcli-deploy` skill：
 
-1. 对每个目标分别执行 `--dry-run`。
+1. 对每个目标分别复述最终参数与影响范围。
 2. 展示将创建或复用的 Endpoint、部署方式和计费影响。
 3. 获得最终确认后真实部署。
 4. 记录每个 `cm-... → ep-...` 映射及 Endpoint 状态。

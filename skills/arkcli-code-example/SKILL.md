@@ -33,12 +33,13 @@ metadata:
 arkcli +code-example --model doubao-seedream-5-0
 
 # 指定版本 + 只看 Python + 结构化输出
-arkcli +code-example --model doubao-seedream-5-0 --version 260128 --lang python --format json
+arkcli +code-example --model doubao-seedream-5-0 --version 260128 --language python --format json
 ```
 
 - `--model` 必填，可传基础模型名或合并 ID（`doubao-seedream-5-0-260128`）
-- `--version` 可选；`--model` 已带版本时可省略
-- `--lang` 可选：`python` / `go` / `java` / `node` / `curl`（`shell` 是 `curl` 别名），默认全部
+- `--version` 可选；不传时 CLI 自动推导（合并 ID 拆版本 → 找 `ArkModels` 匹配 → GetFoundationModel 取 `PrimaryVersion` 兜底），全都拿不到才报错要求显式传 `--version`
+- 内部机制：接口约束 `ModelVersion` 必填，缺失时 CLI 走上述回退链自动补齐；custom model 走 PrimaryVersion 兜底时 scenario 自动切 `finetune_inference`，foundation model 无论显式版本或 PrimaryVersion 兜底一律保持 `quick_access`
+- `--language` 可选：`python` / `go` / `java` / `node` / `curl`（`shell` 是 `curl` 别名），默认全部
 - `--output-dir` 可选，默认 `./ark-examples/<model>`
 - `--format json` 输出结构化条目（含 `language` / `io_type` / `install` / `code`）
 - 语音模型没有 arkcli 示例代码路径；命中 TTS / ASR / 语音交互时停在 `arkcli models search <keyword>` 的发现说明，不要继续调用本命令
@@ -49,7 +50,7 @@ arkcli +code-example --model doubao-seedream-5-0 --version 260128 --lang python 
 
 | 命令 | 说明 |
 |------|------|
-| `arkcli +code-example --model <name> [--version <ver>] [--lang <lang>] [--output-dir <dir>] [--format json]` | 生成多语言示例代码并写入本地 |
+| `arkcli +code-example --model <name> [--version <ver>] [--language <lang>] [--output-dir <dir>] [--format json]` | 生成多语言示例代码并写入本地 |
 
 ## 输出形态
 

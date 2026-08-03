@@ -5,20 +5,19 @@
 ## Agent 必读要点（不要跳过）
 
 1. 子命令穷举：只有 `arkcli +deploy`。**不存在** `arkcli deploy ...` / `arkcli endpoint create` / `arkcli +deploy create`。
-2. **写操作 + 计费**：默认就是真实创建，`--dry-run` 才是预演。
+2. **写操作 + 计费**：执行即真实创建；该工作流不支持 `--dry-run`。
 3. JSON 类 flag 字段名一律 **PascalCase**：`Rpm`、`Tpm`、`Strategy`、`Mode`，不是小写。
-4. **`+code-example` 已迁到 OpenTOP，当前可用**：`arkcli +code-example --model <model-id> --lang python`（按基础模型名生成，不接受 `--endpoint-id`）；详见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)。
+4. **`+code-example` 已迁到 OpenTOP，当前可用**：`arkcli +code-example --model <model-id> --language python`（按基础模型名生成，不接受 `--endpoint-id`）；详见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)。
 5. `--model cm-xxxxx` 真实执行时会先复用已有 Running Endpoint；只有找不到可复用 Endpoint 时才创建。
 6. ~~创建成功后示例代码落到 `./ark-examples/<endpoint-id>/`~~ — 0.1.16 暂不生成示例文件。
 
 ## 命令模板
 
 ```bash
-# 最简部署（不带 --dry-run = 真实创建）
+# 最简部署（真实创建）
 arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215
 
-# 推荐：先 --dry-run 预演
-arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215 --dry-run
+# 执行前复述 model/name/region 并取得明确确认
 
 # 带速率限制（注意 PascalCase 字段名）
 arkcli +deploy --name my-endpoint --model doubao-seed-2-0-pro-260215 \
@@ -55,7 +54,6 @@ arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
 | `--description` | string | 接入点描述 |
 | `--rate-limit` | JSON string | 速率限制，如 `{"Rpm": 60, "Tpm": 10000, "Ipm": 100}` |
 | `--moderation` | JSON string | 审核配置。Strategy: `Basic` / `Customized` / `Default` / `Skip` |
-| `--dry-run` | bool | 试运行模式，不实际创建 |
 | `--view` | string | 创建后查看 Endpoint 详情 |
 
 ### 高级配置

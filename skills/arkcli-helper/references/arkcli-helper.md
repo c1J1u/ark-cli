@@ -1,5 +1,17 @@
 # arkcli helper —— 详细参考
 
+## `--dry-run` 边界
+
+`arkcli helper` 整个命令域不注册 `--dry-run`。这些命令负责 TTY
+交互、本地 harness 配置、MCP 注入或外部工具安装，不是 API request
+参数预览。传入该 flag 应直接报 unknown flag，不能静默忽略，也不能
+输出虚假成功。
+
+执行 `configure/reset/mcp/supabase` 前，Agent 必须展示准确 target、
+profile、scope 与文件落点并取得确认；只能用 `helper list` 做只读检查。
+不要生成 `arkcli --dry-run helper ...` 或
+`arkcli helper ... --dry-run`。
+
 ## `arkcli helper mcp [target]`
 
 只把内置 MCP server 注入目标 agent 的配置文件,**不动 model / provider / base_url**。**个人版 `agent-plan` 四台**(豆包搜索 web-search + dataPro-search + openviking-dataplane + openviking-controlplane);**团队版 `agent-plan-team` 与 OpenViking 无关,只两台**(豆包搜索 + dataPro)。

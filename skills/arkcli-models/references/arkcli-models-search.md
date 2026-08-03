@@ -29,6 +29,10 @@ arkcli models search --min-output-tokens 8192
 arkcli models search --capability thinking
 arkcli models search --capability mcp --capability functioncall
 
+# 缓存类别过滤（可重复，AND 关系）
+arkcli models search --cache-type implicit_cache
+arkcli models search --cache-type session_cache --cache-type prefix_cache
+
 # 复合查询：找最强 200K+ 思考型 LLM
 arkcli models search --modality text --min-context-window 200000 --capability thinking --strict-filter
 
@@ -50,7 +54,8 @@ arkcli models search --refresh-cache       # 强制同步刷新一次 ArkModels 
 | `--max-context-window` | int | 最大 context_window |
 | `--min-input-tokens` | int | 最小 max_input_tokens |
 | `--min-output-tokens` | int | 最小 max_completion_tokens |
-| `--capability` | string（可重复）| 必备能力，多个为 AND：`thinking` / `mcp` / `functioncall` / `web_browsing` / `knowledge_base` / `caching` / `response_format` / `reasoning_effort` |
+| `--capability` | string（可重复）| 必备能力，多个为 AND：`thinking` / `mcp` / `functioncall` / `web_browsing` / `knowledge_base` / `response_format` / `reasoning_effort` |
+| `--cache-type` | string（可重复）| 必备缓存类别，多个为 AND：`explicit_cache` / `implicit_cache` / `session_cache` / `prefix_cache` |
 | `--strict-filter` | bool | 缺 enrich 数据的模型直接排除（默认保留，避免误杀）|
 | `--include-deprecated` | bool | 包含 `lifecycle_status=Shutdown` 或 `display_name` 含"废弃/下线"的模型（**默认过滤**，只保留可调用模型）|
 | `--refresh-cache` | bool | 同步刷新 ArkModels 元数据 cache（默认 stale-while-revalidate 异步刷新）|
@@ -71,7 +76,7 @@ search [keyword] [filters]
    3️⃣  Modality 兜底：output_modalities 为空时按 task_types 推导
    │   (TextToVideo → out=[video], VisualQA → in=[text,image] out=[text], ...)
    4️⃣  关键词过滤（小写子串，匹配 name+display+short+description+intro）
-   5️⃣  结构化过滤（modality / context / tokens / capability，AND）
+   5️⃣  结构化过滤（modality / context / tokens / capability / cache_type，AND）
    6️⃣  4 桶重排 + (context_window desc, update_time desc, name asc) tie-break
    7️⃣  --size N 截断（默认不截断）
 ```
@@ -96,11 +101,16 @@ search [keyword] [filters]
   "output_modalities": ["text"],
   "capabilities": {
     "thinking": true, "mcp": true, "functioncall": true,
-    "web_browsing": true, "knowledge_base": true, "caching": true,
+    "web_browsing": true, "knowledge_base": true,
     "response_format": false, "reasoning_effort": true
-  }
+  },
+  "cache_types": ["implicit_cache", "session_cache", "prefix_cache"]
 }
 ```
+
+`capabilities.caching` 是旧版兼容字段，只表示 `caching.support`（即
+`explicit_cache`），不要再用于缓存能力判断。模型支持哪些缓存机制以
+`cache_types` 为准。`+chat --caching` 是发请求时的运行参数，与这里的模型能力字段无关。
 
 ## 重要行为
 
@@ -109,6 +119,8 @@ search [keyword] [filters]
 - **`--strict-filter`**：缺数据视为不满足，直接排除（agent 拿到的 100% 是 ground truth）
 
 模态查询通常加 `--strict-filter` 更准；数值查询（context window）保持默认（缺数据不杀）通常更合理。
+
+`--cache-type` 是精确过滤：只有 `cache_types` 明确包含所请求类别的模型才会返回；缺少缓存元数据的模型不会作为候选保留。
 
 ### 召回不再有 top-K 限制
 不像旧版 fuzzy 接口默认 9 条，本命令默认返回**全部命中**。如需限制，传 `--size N`。
@@ -152,7 +164,7 @@ search [keyword] [filters]
 |------|------|
 | 用户给模糊关键词，找候选 | **`search`** ✓ |
 | 找最新发布的模型（time-sensitive） | **`search`**（结果按 update_time DESC）|
-| 按 modality / context / capability 找 | **`search`** + 对应 flag |
+| 按 modality / context / capability / cache type 找 | **`search`** + 对应 flag |
 | 全量枚举所有模型 | `search` 无 keyword（152 条全量）|
 | 按 name 精确匹配 | `list --name foo`（精确）或 `search foo`（含 fuzzy）|
 | 拿单个模型的完整详情（计费、限流、能力位详细描述）| `get <name>` |

@@ -13,7 +13,7 @@
 ## 命令
 
 ```bash
-# 单月汇总(最常用) — 默认: ARK 推理 7 个产品(arkProducts,不含订阅) + profile.project
+# 单月汇总(最常用) — 默认: 9 个支持 API Key 分账的 ARK / Agent 产品 + profile.project
 # 自动注入(若 profile.project 是具体 id, 如 "auto-test");profile.project="default" /
 # 账号全部资源哨兵 / 空 时跳过注入 = 真账号全量。stderr 出软提示告知。
 arkcli billing list --start 2026-05
@@ -68,7 +68,11 @@ arkcli billing list --start 2026-05 --ignore-zero
 
 不同 scope 覆盖的账单子集不一样。**`ark_subscription` (Agent Plan / Coding Plan) 只能在账号维度看,任何 IAM/EP/apikey 维度都看不到**(账号级归属,没 IAM owner)。
 
-| 视图 | ARK 推理 (7 product) | 订阅类 (`ark_subscription`) |
+Volc 默认使用二进制内置的 9 个 API Key 可分账产品白名单，已覆盖
+大模型推理、图像、开源模型及 Managed Agent 账单。用户显式传
+`--product` 时仍尊重用户指定的产品范围。
+
+| 视图 | ARK 推理 / Agent (9 product) | 订阅类 (`ark_subscription`) |
 |---|---|---|
 | 裸跑 (默认) | ✅ | ❌ (默认 Product 锁过滤) |
 | `--product ark_subscription` | ❌ | ✅ |
@@ -209,7 +213,7 @@ done | jq -s '.'
 - **T+1 出账**: 当月当日数据可能不全,月度对账建议月初拉**前一个完整账期**
 - **数据量大**: 单账期 ARK 账单常上万行,默认 cap ~3000 条 (~1 MB JSON);首选 `--split-dim` 服务端聚合,sample 用 `--limit`,要全量明细放宽 `--page-limit`
 - **金额是 CNY 字符串**: 用 decimal 库,不要 `parseFloat`
-- **默认锁 ARK 7 个产品**: 防 EIP / TOS / VDB 等非 ARK 产品脏返回,**不含 `ark_subscription`** — 看订阅类显式 `--product ark_subscription`
+- **默认锁 9 个支持 API Key 分账的 ARK / Agent 产品**: 防 EIP / TOS / VDB 等非 ARK 产品脏返回,**不含 `ark_subscription`** — 看订阅类显式 `--product ark_subscription`
 
 ## 参考
 

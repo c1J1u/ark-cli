@@ -40,6 +40,9 @@ arkcli api
 
 # 调用某个已注册 Action
 arkcli api <registered-action> --params '{...}'
+
+# 只在客户端预览 descriptor 和最终 payload，不请求后端
+arkcli api <registered-action> --params '{...}' --dry-run
 ```
 
 ## 参数
@@ -49,12 +52,18 @@ arkcli api <registered-action> --params '{...}'
 | `<registered-action>` | 否 | string | Action 名（例如 `model.list_foundation_models`）。不提供时默认进入 list 模式 |
 | `--list` | 否 | bool | 列出全部已注册 Action |
 | `--params` | 否 | string | JSON 请求体（字符串形式）。省略时默认 `{}` |
+| `--dry-run` | 否 | bool | 仅 invoke 模式可用；输出 `preview.v1` Client Preview，不请求后端 |
 
 ## 返回值
 
 - list 模式：返回已注册 Action 列表（按名称排序）。
 - invoke 模式：返回该 Action 的原始响应对象（按契约定义）。
+- invoke + `--dry-run`：返回 `mode=client_preview` 和 `steps[0]` 中的
+  `protocol`、`target`、脱敏后的 `payload`；不创建 transport，不验证服务端。
 - 输出遵循全局 `--format`（当前仅 `json`）与 `--transform`（GJSON path 表达式）。
+
+`arkcli api --list --dry-run` 会报错，因为 list 本身已经是纯本地枚举，
+没有远端请求可供 Preview。
 
 ## 如何确定 `--params` 的结构
 
@@ -71,6 +80,10 @@ arkcli api <registered-action> --params '{...}'
 
 - 默认只读优先：能用查询验证就先查询验证。
 - 写/删/可能产生费用的 Action：执行前必须让用户明确确认意图。
+- 写/删/可能产生费用的 Action：先运行同一条命令的 `--dry-run` Client
+  Preview 核对 payload；Preview 后仍必须让用户明确确认，不能自动去掉 flag。
+- `--params '{"DryRun":true}'` 中的 `DryRun` 是后端请求字段，不等于 CLI
+  `--dry-run`。未加 CLI flag 时命令仍会创建 transport 并发出真实请求。
 - `--debug` 仅用于排障：会输出请求/响应调试信息到 stderr，容易产生噪声。
 - 输出降噪：优先用 `--transform` 抽取稳定字段（便于脚本与后续步骤消费）。
 
@@ -80,10 +93,16 @@ arkcli api <registered-action> --params '{...}'
 # 1) 最小调用（先跑通再逐步加字段）
 arkcli api model.list_foundation_models --params '{}'
 
-# 2) 加分页
+# 2) 先做本地 Client Preview
+arkcli api model.list_foundation_models \
+  --params '{"PageSize":10,"PageNumber":1}' \
+  --dry-run \
+  --transform 'steps.0.payload'
+
+# 3) 加分页
 arkcli api model.list_foundation_models --params '{"PageSize":10,"PageNumber":1}'
 
-# 3) 只提取关键字段（示例 path，按实际输出结构调整）
+# 4) 只提取关键字段（示例 path，按实际输出结构调整）
 arkcli api model.list_foundation_models --params '{"PageSize":10,"PageNumber":1}' --transform 'Result.Items.#.Name'
 ```
 
@@ -108,4 +127,10 @@ arkcli api --list --transform '0.name'
 
 # 2) 正常调用能工作（以已知 action 为例）
 arkcli api model.list_foundation_models --params '{"PageSize":1,"PageNumber":1}' --transform 'Result.Items.#.Name'
+
+# 3) Client Preview 不请求后端，输出统一 plan
+arkcli api model.list_foundation_models \
+  --params '{"PageSize":1,"PageNumber":1}' \
+  --dry-run \
+  --transform 'steps.0.payload'
 ```

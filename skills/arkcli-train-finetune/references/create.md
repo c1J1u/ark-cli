@@ -1,7 +1,7 @@
 # 创建精调任务
 
 - 参考以下顺序完成创建；当用户提供信息不足时，查询并给出建议。
-- 若用户已明确给出 model、version、训练数据、训练类型（--type）和超参数/默认策略，允许直接执行 create --dry-run 获取服务端预览；dry-run 失败或返回信息不足时，再按错误类型补查对应命令。
+- 若参数已明确，允许直接执行 `create --estimate` 获取在线 Token 与费用估算；估算失败或信息不足时，再按错误类型补查。
 - 真实 create 必须等待用户确认。
 
 ## 1. 查询模型、训练方法、价格与部署能力
@@ -11,7 +11,7 @@
 | `arkcli models search <keyword>`       | 找候选基础模型（是否支持精调的信息仅供参考）     | `--modality`、`--strict-filter`                          |
 | `arkcli models versions <model>`       | 找基础模型下的模型版本（是否支持精调的信息仅供参考） | 无                                                       |
 | `arkcli train finetune capability get` | 查某模型版本支持的训练方法（以此为准）        | `--model`、`--version`                                   |
-| `arkcli train finetune pricing`        | 查训练单价                      | `--model`、`--type`                                      |
+| `arkcli train finetune pricing`        | 按 Token 或实例计费查询训练价格          | `--model`、`--model-version`、`--type`、`--billing-method` |
 | `arkcli infer endpoint capability get` | 查询基础模型（model+version）、自定义模型（custom-model-id）支持的推理部署方式             | `--model`、`--version` 、`--model-id` |
 
 这些命令的 flags 会随 CLI 演进；常规场景可直接按本 reference 使用，遇到报错或不确定再查 `--help`
@@ -22,6 +22,10 @@
 arkcli models versions <model>
 arkcli train finetune capability get --model <model> --version <version>
 arkcli train finetune pricing --model <model> --type <type>
+# token 是默认计费方式；不要改用通用 arkcli pricing models
+# 实例计费必须使用精确版本和训练方法；自定义超参需与后续创建保持一致
+arkcli train finetune pricing --model <model> --model-version <version> --type <type> \
+  --billing-method instance --hyperparameters '{"epoch":"3"}'
 arkcli infer endpoint capability get --model <model> --version <version>
 ```
 
@@ -29,6 +33,9 @@ arkcli infer endpoint capability get --model <model> --version <version>
 
 - 该版本支持哪些训练方法。
 - 选定训练方法的计价单位和价格。
+- `token` 返回按 Token 计费项；`instance` 会先校验该模型版本和训练方法支持 Instance，
+  再返回资源模板、机型单价、角色数量对应的小时价及整体小时价范围。只有
+  `price_complete=true` 时价格范围才是完整的；否则必须报告 `missing_flavor_ids`，不得按 0 元解释。
 - 选定版本及训练方法，训练后支持的部署方式。
   - 使用`--model`、`--version`或`--model-id`查询到的是基础模型的部署能力，为精调产物的潜在部署能力，不保证具备完全相同的能力。
   - 训练完成后的实际部署方式需要用 `--custom-model-id` 再查，并由部署 skill 继续处理。
@@ -133,16 +140,18 @@ arkcli train finetune create --help
 Token 数处理：
 
 - 环境中存在与目标模型匹配的 tokenizer 时，可以给出本地估算并注明 tokenizer 和误差来源。
-- 没有匹配 tokenizer 时，不要用字符数冒充精确 token 数；将 token 统计交给服务端 dry-run。
+- 没有匹配 tokenizer 时，不要用字符数冒充精确 token 数；将 token 统计交给在线 `--estimate`。
 
 ## 4. 查询并确认超参数
 
 | 命令                              | 何时用                               | 常用参数                         |
 | :------------------------------ | :-------------------------------- | :--------------------------- |
 | `arkcli models finetune-config` | 确定模型版本和训练方法后查支持的超参和 `dataset_schema` | `<model> <version>`、`--type` |
-| `arkcli train finetune create`  | 预览或创建任务                           | `--dry-run` 预览，确认后真实提交       |
+| `arkcli train finetune create`  | 估算或创建任务                           | `--estimate` 在线估算，确认后真实提交       |
 
 打印参数名、默认值、范围或枚举、简短说明。不要依赖记忆填写字段名。
+
+显式传入 `--type` 时，`models finetune-config` 会使用与 `train finetune capability get` 相同的权威 `FinetuneTypes`，校验精确的模型版本是否支持该训练方法。不支持时会在读取配置 schema 前返回 validation error；不要继续 estimate 或创建任务。
 
 - 用户要求自定义超参时，请其确认覆盖值。
 - 根据用户选择的模型、偏好、数据量、效果指标、日志等信息，分析并帮助用户配置超参；如果没有更优配置，使用默认值。
@@ -158,9 +167,9 @@ Token 数处理：
 
 | 命令                             | 何时用     | 常用参数                   |
 | :----------------------------- | :------ | :--------------------- |
-| `arkcli train finetune create` | 预览或创建任务 | `--dry-run` 预览，确认后真实提交 |
+| `arkcli train finetune create` | 估算或创建任务 | `--estimate` 在线估算，确认后真实提交 |
 
-根据 `arkcli train finetune create --help` 组装命令，先执行 `--dry-run`。本地文件上传如需确认，先获得用户授权，再按 CLI 提示添加 `--yes`。
+根据 `arkcli train finetune create --help` 组装命令，先执行 `--estimate`。这是在线估算而非 Client Preview；本地文件上传如需确认，先获得用户授权。
 
 预览至少汇总：
 
@@ -173,7 +182,7 @@ Token 数处理：
 - 计价单位、单价和预估费用
 - 数据容错、随机种子、产物数量等非默认配置
 
-如果 dry-run 没有返回某个字段，明确说明“未提供”，不要自行补造。
+如果 estimate 没有返回某个字段，明确说明“未提供”，不要自行补造。
 
 ## 6. 最终确认并创建
 

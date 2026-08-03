@@ -93,17 +93,17 @@ arkcli resources resolve <endpoint-id> --format json
 元数据不可用时返回 `unknown`，不要退回模型名启发式猜测；请用户明确工作流或补
 `--modality`。
 
-## dry-run 的统一边界
+## Client Preview 的统一边界
 
-`+chat`、`+understand`、`+gen` 的 `--dry-run` 使用与真实执行相同的上下文和资源
-解析逻辑：
+`+chat`、`+understand`、`+gen` 的叶子命令支持 `--dry-run` 时，只做本地
+Client Preview：
 
-- 允许读取控制面的 Endpoint/模型元数据，以保证 dry-run 与真实执行分类一致。
-- 禁止调用会产生推理用量、计费或存储响应的数据面 API。
-- 禁止控制面写操作。
-- 输出可包含无 secret 的 `execution_context`；Endpoint 解析可附带
-  `resource_resolution`。
+- 不读取控制面的 Endpoint/模型元数据，不调用数据面 API，也不刷新凭证。
+- 不产生推理用量、计费、存储响应或任何控制面写操作。
+- 本地已知的输入写入 `preview.v1.steps`；依赖在线元数据才能补齐的值必须用
+  `unresolved` / placeholder 表达，并把 fidelity 标成 `partial`。
 - 输出不得包含 API Key、token 或其他凭证值。
 
-因此，dry-run 的含义是“无副作用预演”，不是“完全离线”。例如自动识别
-Endpoint 是 image 还是 video 可以做只读控制面查询，但绝不能真的生成内容。
+因此，Client Preview 是“客户端参数与执行计划预览”，不是在线 validation，也
+不证明资源存在、权限可用或服务端会接受请求。需要精确解析 Endpoint 时，先显式
+运行只读的 `resources resolve`，再决定真实调用参数。

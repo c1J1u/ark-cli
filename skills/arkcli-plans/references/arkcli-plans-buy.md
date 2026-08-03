@@ -15,11 +15,11 @@
 
 | 形态 | 行为 | 何时用 |
 |---|---|---|
-| 不传 `--yes` 不传 `--dry-run` | **协议闸门**:返协议清单 + **价格** + `next_step`,内部走 EstimatePrice,**不下单** | 默认引导步骤;agent 走这个一次拿"协议 + 价格" |
-| `--dry-run` (无论是否带 `--yes`) | **询价**:调 EstimatePrice,返价格,**不下单** | 跟闸门重叠,留作脚本"只询价不看协议"的快捷出口 |
-| `--yes` 不带 `--dry-run` | **真下单**:`IsAutoPay=true` 自动扣款 | 用户已确认协议 + 价格,真下单 |
+| 不传 `--yes` 不传 `--estimate` | **协议闸门**:返协议清单 + **价格** + `next_step`,内部走 EstimatePrice,**不下单** | 默认引导步骤;agent 走这个一次拿"协议 + 价格" |
+| `--estimate` (无论是否带 `--yes`) | **在线询价**:调 EstimatePrice,返价格,**不下单** | 跟闸门重叠,留作脚本"只询价不看协议"的快捷出口 |
+| `--yes` 不带 `--estimate` | **真下单**:`IsAutoPay=true` 自动扣款 | 用户已确认协议 + 价格,真下单 |
 
-> **闸门里已经包含价格** — 不需要先 `--dry-run` 再看协议。一次调用同时拿到 `agreements` + `total_amount_cny` + `original_amount_cny`,展示给用户后直接走 `next_step`。
+> **闸门里已经包含价格** — 不需要先 `--estimate` 再看协议。一次调用同时拿到 `agreements` + `total_amount_cny` + `original_amount_cny`,展示给用户后直接走 `next_step`。
 
 ## 命令
 
@@ -28,7 +28,7 @@
 arkcli plans buy --plan agent-plan --type small --duration 1
 
 # 第 2 步 (可选): 询价
-arkcli plans buy --plan agent-plan --type small --duration 1 --dry-run
+arkcli plans buy --plan agent-plan --type small --duration 1 --estimate
 
 # 第 3 步: 用户阅读并同意全部协议后, 真下单
 arkcli plans buy --plan agent-plan --type small --duration 1 --yes
@@ -57,7 +57,7 @@ arkcli plans buy --plan coding-plan-team --type pro --quantity 10 --yes
 
 ## 返回值 (协议闸门, 默认形态)
 
-不传 `--yes` 不传 `--dry-run` 时:
+不传 `--yes` 不传 `--estimate` 时:
 
 ```json
 {
@@ -137,7 +137,7 @@ arkcli plans buy --plan coding-plan-team --type pro --quantity 10 --yes
 
 ## 注意事项
 
-- **真实扣款**：CLI 没有 "下单不支付" 模式；要预演用 `--dry-run`（若支持）或换轻档位 + 1 月先试
+- **真实扣款**：CLI 没有 "下单不支付" 模式；要询价用 `--estimate`，或换轻档位 + 1 月先试
 - 团队版下单后席位会以 `BillingStatus=Running` 状态出现，但**没绑定子用户**；后续走 [`plans team seat-assign`](arkcli-plans-team-seat-assign.md) 分配
 - 重试要谨慎：`payment_failed` 的订单**已经在服务端**，重跑会再开一单
 

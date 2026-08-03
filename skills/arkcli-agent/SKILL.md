@@ -1,6 +1,6 @@
 ---
 name: arkcli-agent
-version: 1.1.0
+version: 1.1.1
 description: "arkcli agent：管理 ARK Managed Agents，包括 Agent / Skill / Env / Session / File / Memory Store / Vault / MCP OAuth。控制面优先走 ForTop/OpenTOP，Session 运行时和 Files 走数据面直联。"
 metadata:
   requires:
@@ -16,6 +16,18 @@ metadata:
 
 执行前按“先选路径”读取对应 reference；只读相关 reference，不需要一次性加载全部细节。用户请求如果已经明确是创建、复制、挂文件、聊天、MCP 登录等写操作，完成必要确认/消歧后直接执行，不要只给命令建议。
 
+## 创建 Agent 的最小决策表
+
+| 用户输入 | AI Agent 的处理 |
+| ---- | ---- |
+| 未指定模型 | 先用 `agent model list --query` 从 Managed Agent 白名单中选择精确 `items[].model`，不要凭印象拼模型 ID |
+| 未指定 Skill | 先查本账号 custom skill；没有合适候选再查 market/SkillHub skill |
+| 给出本地 Skill zip | 先调用 `agent skill create --zip`，拿到返回的 `skill-...` ID 和版本后再创建 Agent |
+| 未指定工具 | 使用 CLI 注入的完整默认工具集；显式传 `--tool` 时全量替换默认工具 |
+| 未指定环境 | 创建 Session 时自动选择当前项目最新环境；没有可用环境才提示创建或传入环境 ID |
+| 创建成功 | 必须回读 `agent agent get <agent-id> --format json`，展示服务端最终的 Model、System、Tools、Skills、McpServers 和扩展配置 |
+| 用户期待 Agent 回复 | 短请求使用 `+new session ... --message` 或 `events send ... --wait`；大 payload / 长耗时任务使用 `events send --poll`，或 send 立即返回后按 cursor 轮询 events / 使用 `+tail`，不要让所有任务都阻塞等待 |
+
 ## 先选路径
 
 | 用户意图 | 首选命令 | 细节 |
@@ -26,10 +38,14 @@ metadata:
 | 创建 Agent 时选择 Skill | 默认先查 custom，未命中再查 market；用户明确指定 market 时跳过 custom | [`references/skills.md`](references/skills.md) |
 | 查询/使用本账号 custom skill | 先 `agent skill list --source custom --limit 100`，无匹配时沿 `NextPage` 传 `--page` 继续；需要完整候选时再用 `--page-all` / `--skill <skill-id>` | [`references/skills.md`](references/skills.md) |
 | 上传本地 custom skill zip | `arkcli agent skill create --zip <file>` 或 `agent agent create --skill-zip <file>` | [`references/skills.md`](references/skills.md) |
+| 管理 custom Skill 版本 / 删除 Skill | 先完整列出版本，再按“非 latest → latest → Skill”的依赖顺序删除 | [`references/skills.md`](references/skills.md) |
 | 创建运行环境 / 会话 | `arkcli agent env ...` / `arkcli agent session ...` | [`references/session-files.md`](references/session-files.md) |
+| Environment 初始化脚本 | `arkcli agent env create/update --setup-script @./bootstrap.sh` | [`references/session-files.md`](references/session-files.md#environment-自定义脚本) |
+| Session 一次性覆盖 Agent / Environment | `arkcli agent session create --agent-overrides ... --environment-overrides ...` | [`references/session-files.md`](references/session-files.md#session-overrides) |
+| Session 创建时绑定 TOS 目录 | 用户明确提供地址后使用 `arkcli agent session create --tos-path tos://<bucket>/<prefix>/`；未提供时先询问，不猜路径 | [`references/session-files.md`](references/session-files.md#session-tos-资源) |
 | 选择/继续 Managed Agent 会话 | `arkcli +new session` | [`references/events-chat.md`](references/events-chat.md) |
 | 直接创建新会话并聊天 | `arkcli +new session <agent-id> --environment-id <env-id>` | [`references/events-chat.md`](references/events-chat.md) |
-| 给已有会话发消息或实时看回复 | `arkcli agent session events send <session-id>` / `arkcli +tail <session-id>`；多事件按顺序串行发送且非原子，支持异类 event 顺序组合 | [`references/events-chat.md`](references/events-chat.md) |
+| 给已有会话发消息或实时看回复 | 默认 `events send` 只负责写入；需要完整回复时加 `--wait` 自动跟随 event cursor，实时入口默认请求 `agent.message` / `agent.thinking` Event Deltas；也可使用 `+tail`/`events stream`，`--no-event-deltas` 回退完整事件；`+new session`/`+iterate` 内部自动使用补偿 channel | [`references/events-chat.md`](references/events-chat.md) |
 | 看 session 诊断 / 导出诊断包 | `arkcli +debug <session-id>` / `arkcli +export <session-id>` | [`references/debug-export.md`](references/debug-export.md) |
 | 上传文件并挂到已有 session | `arkcli agent session resources add <session-id> --path <file>` | [`references/session-files.md`](references/session-files.md) |
 | 只上传 / 查询 Files API 文件 | `arkcli agent file upload/list/get/wait/delete` | [`references/session-files.md`](references/session-files.md) |
@@ -53,7 +69,29 @@ metadata:
 
 - Managed Agent 的破坏性 `delete` 命令在真实 TTY 且未传 `--yes` 时会显示不可逆警告并询问 `[y/N]`；输入 `y/yes` 才会调用后端，其他输入会取消。
 - 非交互环境（AI Agent、CI、管道）不会读取 stdin；未传 `--yes` 时返回 `type=requires_confirmation`，不会调用后端。只有用户已经明确确认删除目标后，调用方才可以补 `--yes` 重试。
-- `--dry-run` 只预览请求，不删除资源，也不弹确认。
+- `--dry-run` 不是全域能力。只有命令自身 `--help` 列出该 flag 时才可用；
+  当前主要覆盖可由本地 payload 确定的 Env/Session/Memory/Vault/Credential
+  写请求，以及 `agent agent create/update/delete`、`agent skill create/update/delete`
+  和 `agent file upload/delete`，以及会写本地文件的 `agent skill download`、
+  `+export`。`+new-agent`、`+iterate`、MCP login 与所有纯读命令都不注册。
+  Client Preview 只生成零网络 `preview.v1` 计划；它不代替真实执行前的开通、
+  版本/依赖校验或删除确认。
+
+## 长流程执行规则
+
+- 一个 shell/tool 调用只执行一个 `arkcli` 命令。不要把 `session create`、写入 ID、`events send`、`events list` 用 `&&`、`;`、管道或 heredoc 串成一个长命令。
+- `session create`、Agent 创建、文件上传等写操作成功后，立即从结构化输出提取并保存 ID；下一次调用使用已经确认的字面量 ID，不要依赖同一 shell 中的变量赋值继续执行。
+- 任一步超过预期时间时，先结束该步并单独执行 `session get`、`events list` 或 `+debug` 诊断；不要让后续命令被前一个阻塞步骤掩盖。
+- 大 JSON 或大文本不要在同一个 shell 调用中通过 Python/Node 管道解析；先让 `arkcli --format json` 独立返回，再在下一步解析结果。这样即使请求超时，也能区分是创建、发送还是回查阶段失败。
+
+### 超时与重试
+
+- 只对网络超时、连接中断、429 或 5xx 做有限重试；参数校验、鉴权失败、未开通、权限不足和明确业务错误直接抛出，不要重试。
+- `session create` 超时后结果可能未知。先用 `session list/get` 按返回的标题、Agent、环境和创建时间检查是否已经创建，再决定是否重试；没有幂等键时不要盲目重复创建。
+- `events send` 超时后也可能已经被服务端接收。先用返回的 event cursor、发送时间或最近的 user event 查询 `events list`；确认没有接收记录后才允许重试，避免重复发送用户消息。
+- `events send --wait` 达到 stream 等待上限后会自动切换为 events list polling，默认再等待 120 秒；两阶段都超时才返回带 cursor 恢复命令的非 0 错误。此时不要重发原消息，继续 list/poll 同一个 cursor。
+- `events list/get` 属于只读请求，可以使用有限次数、指数退避的重试；继续使用同一个 `after` cursor，不要因为重试而从历史开头重新读取。
+- 每一步都要保留步骤名、Session ID、event cursor、尝试次数和最后错误；达到重试上限后抛出带上下文的错误，不要把超时伪装成成功。
 
 ## 命令速查
 
@@ -63,11 +101,11 @@ metadata:
 | `arkcli agent model list` | 查询 Managed Agent 模型白名单；`--query` 用模型目录详情增强/排序白名单；输出 `items[].model` 可直接作为 `--model` |
 | `arkcli +new-agent` | Agent create 增强入口；支持 `--fork/--from` 复制已有 Agent 后创建新 Agent |
 | `arkcli +iterate` | 更新 Agent 配置，创建新 Session，并进入 one-shot/REPL 试运行；`--environment-id/--env-id` 可选，省略时自动选择最新环境 |
-| `arkcli agent skill search/list/get/create` | Market skill 检索、本账号 custom skill 查询、本地 zip 上传；`list/search --source custom` 走 TOP `ListSkills` |
+| `arkcli agent skill search/list/get/create/update/delete/versions/download` | Market skill 检索、本账号 custom skill 查询、custom Skill zip 上传、版本更新、版本列表和下载；删除须按“非 latest → latest → Skill”执行；custom 查询走 TOP `ListSkills` |
 | `arkcli agent env list/get/create/update/delete` | Environment CRUD；当前 `env list` 没有 `--status`，状态筛选规则见 `session-files.md` |
 | `arkcli agent session list/get/create/update/delete` | Session CRUD |
 | `arkcli agent session resources list/add/get` | 数据面 session resources；get 是 CLI 基于 list 的本地筛选 |
-| `arkcli agent session events list/send/stream` | 数据面 events；stream 输出 SSE/NDJSON 行；`user.custom_tool_result` 必须带 `custom_tool_use_id`，`user.tool_result` 仅允许 self_hosted，CLI 会前置校验 |
+| `arkcli agent session events list/send/stream` | 数据面 events；stream 默认请求 Event Deltas 并输出 SSE/NDJSON 行；`--no-event-deltas` 回退完整事件；`user.custom_tool_result` 必须带 `custom_tool_use_id`，`user.tool_result` 仅允许 self_hosted，CLI 会前置校验 |
 | `arkcli agent session threads list/get` | 数据面 threads |
 | `arkcli agent file list/get/upload/wait/delete` | 数据面 Files API |
 | `arkcli agent memory-store list/get/create/update/delete` | Memory Store CRUD |

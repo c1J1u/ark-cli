@@ -81,7 +81,7 @@ dim 间 fallback (endpoint→apikey) agent **可以自动重试**,因为同 mine
 - **金额是 CNY 字符串** — JSON 数字精度有损,加和 / 比较用 decimal 库,不要 `parseFloat`
 - **月初对账拉前一个完整账期** — T+1 出账,当月当日数据不全
 - **`--mine` ≠ `PayerID`** — `--mine` 按 IAM 子用户过滤资源,`PayerID` 是财务托管 owner 账号 ID,单账户场景手撸 `PayerID` 是 no-op (= 全账号查询)。默认 `--mine-by=endpoint`(infra ownership,对齐 usage stats),要看 cost causation (我的 key 在花钱) 显式 `--mine-by=apikey`
-- 默认 scope = ARK 推理 7 个产品(**不含 `ark_subscription`**,要看订阅类显式 `--product ark_subscription`) + profile.project 自动注入(若 profile.project 是具体 id 如 `auto-test`,自动按 project 过滤;`default`/账号全部资源哨兵/空跳过 = 真账号全量;stderr 出软提示)。要强制账号全量传 `--project=` (空值清空默认)
+- 默认 scope = ARK 推理 / Agent 9 个支持 API Key 分账的产品(**不含 `ark_subscription`**,要看订阅类显式 `--product ark_subscription`) + profile.project 自动注入(若 profile.project 是具体 id 如 `auto-test`,自动按 project 过滤;`default`/账号全部资源哨兵/空跳过 = 真账号全量;stderr 出软提示)。要强制账号全量传 `--project=` (空值清空默认)
 
 ## 常见降级
 

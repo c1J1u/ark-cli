@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md)（认证、API Key 错误恢复、全局参数、安全规则）与 [`sub-skills.md`](sub-skills.md)（12 个 sub-skill 的用途与期望输出形态）。
 
-`+understand` 是数据面 Responses API（`POST /responses`）之上的「1 引擎 + 语义层」多模态理解工作流。它和 `+chat` 共用同一个 `CreateResponses` 引擎，差别只在：每个 sub-skill 预置了一段专家 system prompt 和一个默认模型，注入到本次请求的 `instructions` 字段。
+`+understand` 是数据面 Responses API（`POST /responses`）之上的「1 引擎 + 语义层」多模态理解工作流。它和 `+chat` 共用同一个 `CreateResponses` 引擎；每个 sub-skill 预置专家 system prompt 和 Plan Profile 使用的 fallback 模型。Platform Profile 省略 `--model` 时改用当前 Profile 的 `Resources.Text.Default` Endpoint。
 
 ## 命令形态
 
@@ -60,7 +60,7 @@ arkcli +understand asr --input @speech.mp3 --format json
 | `<sub-skill>` | 是* | positional | 12 个之一（见 [`sub-skills.md`](sub-skills.md)）。省略时由首个 `--input` 模态自动路由，但位置参数总数仍需 ≥1 |
 | `[prompt]` | 否 | positional | 附加在内置 system prompt 之上的用户要求（如抽取字段、回答的具体问题、输出语言） |
 | `--input` | 是 | string（可重复） | 输入素材，如 `@photo.jpg`；按扩展名分流到 image/video/audio/file。**没有 `--input` 会 `missing_input` 报错** |
-| `--model` | 否 | string | 覆盖 sub-skill 默认模型。**默认别传**——默认值已验证可用。要传须是完整版本化 ID（`<name>-<primary_version>`）或 `ep-xxx`，拿不准先查 [`../../arkcli-models/SKILL.md`](../../arkcli-models/SKILL.md) |
+| `--model` | 否 | string | 显式资源覆盖，优先级最高。省略时：Platform Profile 使用 `Resources.Text.Default` 的 `ep-xxx`；Plan 类 Profile 使用 sub-skill fallback 模型。要传须是完整版本化 ID 或 `ep-xxx` |
 | `--stream` | 否 | bool | 流式输出（两段：`Thinking:` + `Response:`） |
 | `--system-prompt-override` | 否 | string | **整体替换** sub-skill 内置 system prompt |
 | `--system-prompt-append` | 否 | string | 在内置 system prompt **末尾追加**额外指令 |
@@ -71,10 +71,24 @@ arkcli +understand asr --input @speech.mp3 --format json
 | `--thinking` | 否 | string | 内部思考：`auto` / `enabled` / `disabled` |
 | `--store` | 否 | bool | 持久化本次响应（可后续用 `arkcli chat get <id>` 取回） |
 | `--no-progress` | 否 | bool | 关闭非流式调用时 stderr 的心跳提示（脚本场景用） |
+| `--timeout` | 否 | duration | 本地文件准备与推理的总等待上限，默认 `2m`；大文件可显式传 `10m` 等更长时间 |
+| `--dry-run` | 否 | bool | 本地解析 recipe、Profile 已存默认 Endpoint、显式模型、输入引用与请求摘要；不读在线元数据、不上传文件、不调用 Responses API、不产生用量/response id/持久化响应 |
 
 \* 至少要有 sub-skill 名或可路由的 `--input`，否则 `missing_sub_skill`。
 
 全局 flag（`--profile` / `--api-key` / `--base-url` / `--format json` / `--transform` / `--debug` 等）见 [`../../arkcli-shared/references/global-flags.md`](../../arkcli-shared/references/global-flags.md)。`+understand` 属于数据面命令；临时连接按下述非对称组合规则处理。
+
+模型/Endpoint 解析优先级：
+
+```text
+显式 --model
+  -> Platform Profile: 当前 Profile.Resources.Text.Default（必须是 ep-xxx）
+  -> Plan 类 Profile: sub-skill recipe fallback 模型
+```
+
+- Platform Profile 没有 `Resources.Text.Default` 时直接报错并引导设置默认资源；禁止悄悄退回裸模型名。
+- 不得因为默认资源缺失而切换 Profile、替换 sub-skill 或改走其他业务命令。
+- `--dry-run` 与真实执行使用同一解析结果，但只读取本地 Profile 配置，不查询在线 Endpoint 元数据。
 
 更精确的临时连接规则：
 
@@ -83,8 +97,9 @@ arkcli +understand asr --input @speech.mp3 --format json
 - API Key + Base URL + Endpoint 为 stateless 单次调用，不修改 profile。
 - 只有 API Key + 模型名时，必须能唯一匹配本地 profile；否则要求补
   Base URL/Endpoint，不能从 Key 文本猜数据面。
-- `--dry-run` 复用同一配方、输入与执行上下文解析，但不调用 Responses API、
-  不产生 token 用量、不存储 response；需要识别 Endpoint 时允许只读控制面查询。
+- `--dry-run` 只在本地解析同一配方和输入引用，输出 `preview.v1`；不读取控制面
+  Endpoint/模型元数据、不调用 Responses API、不产生 token 用量、不存储
+  response。在线才能补齐的执行上下文会显式列入 `unresolved`。
 
 完整决策见
 [`../../arkcli-shared/references/execution-context.md`](../../arkcli-shared/references/execution-context.md)。
@@ -114,10 +129,12 @@ arkcli +understand asr --input @speech.mp3 --format json
 
 支持的引用形式：`@<path>`（本地，解析为绝对 `file://`）、`<path>`（无前缀，等价 `@<path>`）、`https://` / `http://`（远程 URL）、`file://` / `tos://`（已构造好的 URL）。
 
-上传路径分两类：
+本地输入分两条准备路径：
 
-- **image / video / doc**：SDK 的 `file://` preprocessor 在 `CreateResponses` 内部**自动**走 Files API（上传拿 `file_id`），arkcli 无需介入。
+- **image / video / doc**：arkcli 先走 Files API 上传并等待文件状态；只有 `active` 才将 `file_id` 传给 Responses。`failed` 会在推理前保留文件服务 code/message 并非零退出，不再用失败文件继续调用模型。
 - **audio**：SDK 的 preprocessor **不处理 audio**，arkcli 在客户端层把本地音频**内联为 base64 data URL** 后再发请求。
+
+`--timeout` 同时覆盖文件准备与 Responses 推理，流式/非流式一致。超时返回稳定错误类型 `understand_timeout` 和非零退出；Agent 不得把超时当成成功，也不得无上限等待。
 
 ### audio 大小约束
 
@@ -132,6 +149,26 @@ arkcli +understand asr --input @speech.mp3 --format json
 ## 返回值
 
 > **与 `+chat` 一致：输出是 arkcli 扁平 schema，不是 Responses API 原生 `output[].content[].text` 嵌套。** 助手文本直接取 `.content`；`--format` 全局只接受 `json`，不会切回原生嵌套 shape。
+
+`--dry-run` 是例外：它返回 `preview.v1` 而不是模型响应，且不会出现模型响应的 `id` / `content` / `usage`：
+
+```json
+{
+  "dry_run": true,
+  "mode": "local",
+  "validation_level": "local",
+  "validated": true,
+  "plan": {
+    "operation": "arkruntime.create_responses",
+    "recipe": "image-caption",
+    "model": "doubao-seed-1-6",
+    "prompt": "描述图片",
+    "inputs": [{"kind": "image", "source": "file:///abs/photo.jpg"}],
+    "stream": false,
+    "instructions_source": "recipe"
+  }
+}
+```
 
 **默认/`--format json` 输出**：
 
@@ -185,6 +222,8 @@ arkcli +understand asr --input @speech.mp3 | jq .usage
 | `missing_input`：`<sub> requires an input file via --input` | 给了 sub-skill 但没 `--input` | 补 `--input @your-file` |
 | `unroutable_input`：`cannot auto-route a "X" input` | 自动路由时模态无默认映射 | 显式写出 sub-skill 名 |
 | `input file not found: <path>` | `@<path>` 不存在或是目录 | 核对路径；注意当前工作目录 |
+| `understand_timeout` | 文件准备或推理超过客户端等待上限 | 先确认文件合法且模型支持该模态；大文件显式传 `--timeout 10m`；稳定复现时保留 `--debug` 输出 |
+| `uploaded responses file <id> failed preprocessing` | Files API 已明确将本地输入标记为 `failed` | 按返回的 code/message 检查文件内容/格式；不要继续重试同一个 failed `file_id` |
 | `ark runtime: API Key is required` | 未配置 API Key | `arkcli auth apikey` 或设 `ARK_API_KEY` |
 | `Error code: 403 - {"code":"AccessDenied",...}` | 数据面鉴权/权限 | **不要重试**，按 [`../../arkcli-auth/references/auth-modes.md`](../../arkcli-auth/references/auth-modes.md)「API Key 模式的错误恢复」走 `arkcli auth apikey` |
 | `Error code: 404 - InvalidEndpointOrModel.NotFound` | `--model` 传了不可解析的族名 | 改用完整 `<name>-<primary_version>` 或 `ep-xxx`，见 [`../../arkcli-models/SKILL.md`](../../arkcli-models/SKILL.md) |
@@ -218,5 +257,6 @@ arkcli api arkruntime.create_responses --params '{
 ## 安全与隐私
 
 - `--input @<file>` 会把文件**完整上传** / 内联到请求中（image/video/doc 经 Files API，audio 经 base64）。敏感素材不要随便传；上传后服务端会保留一段时间。
+- `--dry-run` 只在本地检查文件并输出引用摘要，不上传或内联文件；JSON 中可能包含本地绝对 `file://` 路径，分享日志前仍需脱敏。
 - `--debug` 会把请求/响应（可能含 base64 音频、file URL）打到 stderr；外发日志前先 redact。
 - `--store` 持久化的响应会留在服务端，按需用 `arkcli chat delete <id>` 清理。

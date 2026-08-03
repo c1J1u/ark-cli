@@ -17,14 +17,18 @@ arkcli infer endpoint create [flags]
 | `--billing-method` | string | 计费 / 推理方式；当前仅支持 `token`，不传时保持默认行为 | No |
 | `--rpm` | int | 速率限制 RPM | No |
 | `--tpm` | int | 速率限制 TPM | No |
+| `--dry-run` | bool | 输出本地创建计划，不调用模型查询、开通或创建 API | No |
 | `-h`, `--help` | | help for create | No |
+
+Client Preview 的 `ModelReference` 与模型开通检查依赖在线信息，因此输出为
+`fidelity=partial` 并列出 `unresolved`。它不是服务端 validation，也不证明模型
+已开通或请求会被接受。
 
 ## Global Flags
 
 | Flag | Type | Description |
 |------|------|-------------|
 | `--debug` | | Print request and response debug details to stderr |
-| `--dry-run` | | Preview request metadata without executing when supported |
 | `--format` | string | Output format: json (default "json") |
 | `--page-all` | | Automatically fetch all pages when supported |
 | `--page-delay` | int | Delay in milliseconds between pages (default 200) |
@@ -90,7 +94,7 @@ arkcli infer endpoint start "$endpoint_id"
 `arkcli +code-example` 已迁到 OpenTOP，当前可用。按**基础模型名**生成示例（不接受 `--endpoint-id`）：
 
 ```bash
-arkcli +code-example --model doubao-seed-2-0-pro --lang python
+arkcli +code-example --model doubao-seed-2-0-pro --language python
 ```
 
 详见 [`../../arkcli-code-example/SKILL.md`](../../arkcli-code-example/SKILL.md)。

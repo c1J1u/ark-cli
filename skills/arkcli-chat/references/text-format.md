@@ -22,6 +22,15 @@ description: arkcli +chat --text-format 用法 reference, 让模型按指定格�
 | `--text-schema-name` | schema 命名; 服务端 echo 时显示; 默认 `arkcli_response` |
 | `--text-strict` | 强约束开关; 只在 json_schema 模式生效 |
 
+启用 `--text-strict` 后，CLI 同时承担客户端验收：
+
+1. 请求前本地编译 Schema；无效 Schema 直接报 validation error，不发网络请求。
+2. 只接受状态为 completed 的响应；incomplete（包括 token 截断）按 `invalid_response` 非零退出。
+3. `content` 必须是直接 JSON，不能带 Markdown code fence 或额外解释文字。
+4. JSON 必须通过同一份 Schema 校验；不匹配时按 `invalid_response` 非零退出。
+
+`--stream --text-strict` 会先缓冲事件，到 terminal event 后完成上述校验，再按原顺序输出；校验失败时不向 stdout 输出半截 JSON。未启用 strict 的流式和非流式行为保持不变。
+
 ## 典型用法
 
 ### json_object (最简, 让模型出 JSON)
@@ -87,7 +96,10 @@ arkcli +chat "苹果呢? 同样格式" --model ep --store \
 | `read --text-schema "X": no such file or directory` | 路径写错或权限不足 |
 | `unsupported text.format.type "yaml"` | format 取值不是 text / json_object / json_schema |
 | `text.format.schema is required when type=json_schema` | 走 raw API 时漏传 schema |
-| 模型输出不符合 schema | 试 `--text-strict` 强约束, 或检查 prompt 是否清楚要求结构化 |
+| `invalid --text-schema for --text-strict` | Schema 不是合法、可编译的 JSON Schema；请求尚未发出 |
+| `invalid_response` 且提示 `not completed` | 严格响应被 token cap 等原因截断；提高 `--max-output-tokens` 或缩短输出 |
+| `invalid_response` 且提示 `not a direct JSON value` | 返回内容含 Markdown fence、解释文字或非法 JSON |
+| `invalid_response` 且提示 `did not match --text-schema` | 返回 JSON 不符合 Schema；检查 Schema、模型能力与 prompt |
 
 ## 与 raw API 等价
 

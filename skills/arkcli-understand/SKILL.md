@@ -15,7 +15,7 @@ metadata:
 
 ## 核心概念
 
-- `+understand` **不是 12 套实现，而是 1 个引擎 + 一层语义**：底层引擎就是 `+chat` 用的数据面 Responses API；每个 sub-skill 只是一条**配方** `{模态, 默认模型, 内置 system prompt}`。sub-skill 之间的唯一差异，是注入到 Responses `instructions` 字段的那段专家 system prompt。
+- `+understand` **不是 12 套实现，而是 1 个引擎 + 一层语义**：底层引擎就是 `+chat` 用的数据面 Responses API；每个 sub-skill 只是一条**配方** `{模态, fallback 模型, 内置 system prompt}`。Platform Profile 省略 `--model` 时必须使用当前 Profile 的 `Resources.Text.Default` Endpoint；只有 Plan 类 Profile 才使用 recipe fallback 模型。
 - 命令形态：`arkcli +understand <sub-skill> --input @file [prompt]`。
   - `args[0]` **命中注册表**（12 个之一）→ 当作显式 sub-skill，其余位置参数当 prompt 叠加在内置 prompt 之上。
   - `args[0]` **不命中** → 整段位置参数都当 prompt，服务端按**首个 `--input` 的文件模态自动路由**到该模态的默认 sub-skill。
@@ -23,7 +23,7 @@ metadata:
 - 返回值与 `+chat` 完全一致：arkcli **扁平** schema `{id, model, content, reasoning_content, usage}`，**不是** Responses 原生 `output[].content[].text` 嵌套。详见 [`references/arkcli-understand.md`](references/arkcli-understand.md) 的「返回值」段。
 - 多模态上传：image/video/doc 由 SDK `file://` preprocessor 自动走 Files API；**audio 是特例**——内联为 base64 data URL，**上限 25MB**。详见 reference。
 - 用户临时提供 `--api-key` / `--base-url` / Endpoint 时，MUST 读取 [`../arkcli-shared/references/execution-context.md`](../arkcli-shared/references/execution-context.md)。不要根据 Key 文本或 Endpoint 名称猜数据面/工作流。
-- `--dry-run` 复用真实执行的配方与上下文解析，但绝不调用 Responses API、产生 token 用量或存储 response。
+- `--dry-run` 只在本地解析配方、当前 Profile 已持久化的默认 Endpoint、显式模型和输入引用，输出统一 `preview.v1`；不读取在线 Endpoint/模型元数据、不上传文件、不调用 Responses API、不产生模型用量、不创建 response id 或持久化响应。在线才能补齐的值必须标为 `unresolved`，不能把预览当服务端 validation。
 
 ## 快速决策（understand vs chat vs gen）
 
@@ -42,15 +42,15 @@ metadata:
 3. 用户给了临时 Key/Base URL/Endpoint → 按共享 execution-context 组合规则决定参数，不先切 profile。
 4. 没有完整 stateless 上下文时过认证闸门：不确定登录态先 `arkcli auth status`；鉴权失败按 [`../arkcli-auth/references/auth-modes.md`](../arkcli-auth/references/auth-modes.md) 的「API Key 模式的错误恢复」处理，**不要原地重试**。
 5. 备好输入：`--input @<file>`（可多次）。本地文件用 `@` 前缀；远程用 `https://` / `tos://` URL。
-6. **默认不传 `--model`**：每个 sub-skill 自带已验证可用的默认模型。只有在用户明确要换模型时才传完整版本化 ID 或 `ep-xxx`。
+6. **默认不传 `--model`**：Platform Profile 会使用 `Resources.Text.Default` 中已部署的 `ep-xxx`，与 `+chat` 保持一致；Plan 类 Profile 才使用 sub-skill 的 recipe fallback 模型。只有用户明确指定其他资源时才传完整版本化 ID 或 `ep-xxx`。
 7. 需要逐段输出加 `--stream`；想微调任务指令用 `--system-prompt-append "..."`，或 `--system-prompt-override "..."`。
 8. 跑完回到用户原始目标，不要停在中间产物上。
 
 ## sub-skill 速查表（12 个 / 4 模态）
 
-> 默认模型均为已验证可用的已知好值（真机或同模态机制等价覆盖），**默认不要覆盖**；确需换模型见上文「Agent 快速执行顺序」第 4 条。
+> 下表是 Plan 类 Profile 使用的 recipe fallback 模型。Platform Profile 不使用这些裸模型名，而是使用当前 Profile 的 `Resources.Text.Default` Endpoint。确需覆盖时见上文执行顺序。
 
-| sub-skill | 模态 | 默认模型 | 一句话用途 |
+| sub-skill | 模态 | Plan recipe fallback 模型 | 一句话用途 |
 |---|---|---|---|
 | `image-caption` | image | `doubao-seed-1-6` | 单图/多图描述、OCR（保留原文，不意译） |
 | `image-grounding` | image | `doubao-seed-1-6` | 视觉定位：输出目标 bbox `(x1,y1,x2,y2)` + confidence |
@@ -99,7 +99,7 @@ metadata:
 | `arkcli +understand "<prompt>" --input @photo.jpg` | 省略 sub-skill → 按模态自动路由（此处 → image-caption） |
 | `arkcli +understand asr --input @speech.mp3 --stream` | 流式逐段输出 |
 | `arkcli +understand image-caption --input @x.jpg --system-prompt-append "用英文回答"` | 在内置 prompt 后追加指令 |
-| `arkcli +understand image-caption --input @x.jpg --dry-run --format json` | 无副作用预演；不调用 Responses API |
+| `arkcli +understand image-caption --input @x.jpg "描述图片" --dry-run --format json` | 返回 recipe / 模型 / 请求摘要的 `preview.v1`；零网络、不上传、不推理 |
 
 ## 详细文档
 

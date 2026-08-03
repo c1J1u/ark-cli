@@ -72,8 +72,8 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 - API Key + Base URL + Endpoint 是 stateless 单次调用，不切换/修改 profile。
 - API Key 的 `ark-*` 文本形态不能用于判断它属于哪个套餐或数据面。
 - `--dry-run` 会执行本地请求校验与上下文解析，输出无 secret 的
-  `execution_context`，但不会调用 Responses API、产生 token 用量或存储 response。
-- Endpoint 解析需要时可做只读控制面查询；这不属于计费的数据面推理。
+  `preview.v1`，但不会读取在线 Endpoint/模型元数据、调用 Responses API、产生
+  token 用量或存储 response。在线依赖必须列为 `unresolved`。
 
 不要在日志或回复中回显 API Key。示例中的 placeholder 必须由安全变量替换。
 
@@ -93,7 +93,7 @@ arkcli +chat --model ep-... --api-key '<temporary-key>' --dry-run "hello"
 | `--store` | 否 | bool | 持久化本次响应，让后续 `--previous-response-id` 可以接续；不加 `--store` 则只保留极短窗口 |
 | `--previous-response-id` | 否 | string | 上一轮响应 id，用于多轮对话接续 |
 
-全局 `--dry-run` / `--profile` / `--api-key` / `--base-url` 见共享
+命令级 `--dry-run` 以及 `--profile` / `--api-key` / `--base-url` 见共享
 [`global-flags.md`](../../arkcli-shared/references/global-flags.md)。
 
 ## @file 机制

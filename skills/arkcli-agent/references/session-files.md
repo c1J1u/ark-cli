@@ -11,6 +11,53 @@ arkcli agent session get <session-id> --format json
 Session 标准 CRUD 走 OpenTOP；Session resources / events / threads 走数据面直联。
 线上创建 cloud env 时需要显式带 `Networking: {Type: unrestricted}`；只传 `{Type: cloud}` 会被后端校验为缺少 `config.networking`。
 
+### Session TOS 资源
+
+创建 Session 时可以直接绑定一个 TOS 目录。CLI 会把它编排为 `Resources` 数组中的一项，字段与前端及 OpenTOP 契约一致：`Type=tos`、`TosBucket=<bucket>`、`TosKey=<prefix>/`。
+
+只有用户明确要求绑定 TOS 且提供了地址时才传 `--tos-path`。用户未提到 TOS 时不要默认绑定；用户要求绑定但没有给出地址时，先询问完整的 `tos://<bucket>/<prefix>/`，不要猜 Bucket 或 Prefix。
+
+```bash
+arkcli agent session create \
+  --agent-id agent-xxx \
+  --environment-id env-xxx \
+  --tos-path tos://my-bucket/analysis/ \
+  --format json
+```
+
+`--tos-path` 也接受不带协议的 `my-bucket/analysis/`。它表示目录而不是单个对象，因此 prefix 必须非空并以 `/` 结尾；`tos://bucket/`、`bucket`、`bucket/path` 会在 CLI 层校验失败。已有的 `--resource '[...]'` 仍可使用；同时传两者时 TOS 资源会追加到原始资源数组中。
+
+`arkcli +new session` 和 `arkcli +iterate` 创建 Session 时同样支持 `--tos-path`。该参数只绑定已有 TOS 目录，不负责创建 Bucket、上传对象或申请 TOS 权限；调用前需确保账号已开通 TOS，并对 Bucket/Prefix 有读取权限。
+
+### Environment 自定义脚本
+
+Environment 的初始化脚本位于 `Config.SetupScript`。可以直接传文本，也可以用 `@` 读取本地脚本文件：
+
+```bash
+arkcli agent env create \
+  --name arkcli-analysis-env \
+  --config '{Type: cloud, Networking: {Type: unrestricted}}' \
+  --setup-script @./bootstrap.sh \
+  --format json
+```
+
+`--setup-script` 会覆盖 `Config.SetupScript`；复杂的 `Config` 仍可用 `--config @./env.yaml` 或 `--file` 透传。CLI 会把 `setup_script`、`networking` 等常见 lower/snake case 写法归一化成 OpenTOP 的字段。
+
+### Session overrides
+
+Session 创建可以对已有 Agent / Environment 做一次性配置覆盖。override 内的 `System`、`Tools`、`McpServers`、`Skills`、`Multiagent` 和 Environment `Config` 是服务端定义的替换语义，非 nil 字段不会与基 Agent 自动合并；传数组时要传完整数组。
+
+```bash
+arkcli agent session create \
+  --agent-id agent-xxx \
+  --environment-id env-xxx \
+  --agent-overrides '{Type: agent_with_overrides, Tools: [...]}' \
+  --environment-overrides @./environment-overrides.yaml \
+  --format json
+```
+
+`--agent-overrides` 映射为 `AgentWithOverrides`，`--environment-overrides` 映射为 `Environment`，缺少 override 对象中的 `Id` 时 CLI 会从 `--agent-id` / `--environment-id` 补齐。override 是服务端 one-of 变体，CLI 会在最终请求中移除对应的 `AgentId` / `AgentVersion` 或 `EnvironmentId`，避免同时传两个互斥变体。`arkcli +new session` 和 `arkcli +iterate` 也支持同名参数。需要传自定义 Agent 配置时不要同时使用 `--agent` 和 `--agent-overrides`。
+
 ### Environment 状态筛选
 
 当前 `arkcli agent env list` **没有注册 `--status`**，不要生成下面这种命令：
@@ -35,6 +82,7 @@ arkcli agent env list --page-all --format json
 
 - 本地文件上传到 Files API：`arkcli agent file upload --path ./data.csv --purpose user_data --wait-active`。
 - URL/TOS 注册：`arkcli agent file upload --url https://... --purpose user_data` 或 `--url tos://bucket/path/file --tos '{bucket: b, prefix: arkfiles/}'`。
+- `agent file upload/delete` 支持命令级 `--dry-run`：只输出零网络 `preview.v1`，不会上传、轮询或删除。删除预览不要求 `--yes`，真实删除仍需要明确确认并传 `--yes`。
 - 视频/特殊文件预处理可传 `--preprocess-configs`；有效期可传 `--expire-at <unix-seconds>`。
 - 上传后等待状态：`arkcli agent file wait <file-id>`。
 - 查询已有文件：`arkcli agent file list --purpose user_data --limit 20`；全量遍历用 `arkcli --page-all agent file list`，CLI 默认 `limit=100` 并沿 `has_more + last_id -> after` 拉取。

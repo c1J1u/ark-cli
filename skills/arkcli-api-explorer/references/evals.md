@@ -52,3 +52,32 @@ arkcli api --list --transform '0.name'
 # invoke 模式可用（需要已登录且联网）
 arkcli api model.list_foundation_models --params '{"PageSize":1,"PageNumber":1}' --transform 'Result.Items.#.Name'
 ```
+
+## 5) Client Preview 与后端 DryRun 分流
+
+输入（用户说法）：
+
+- “只看这个 raw Action 最终会发什么参数，不要请求后端”
+
+期望行为：
+
+```bash
+arkcli api model.list_foundation_models \
+  --params '{"PageSize":1,"PageNumber":1}' \
+  --dry-run \
+  --format json
+```
+
+- 使用 Action 叶子命令的本地 `--dry-run`。
+- 检查 `mode=client_preview` 和 `steps[0].payload`。
+- 不要求登录，不把 Preview 成功解释为后端验证成功。
+
+输入（用户说法）：
+
+- “payload 里加 `DryRun:true` 就不会请求后端了，对吗？”
+
+期望行为：
+
+- 明确否定。payload 中的 `DryRun` 是后端字段。
+- 未传 CLI `--dry-run` 时，Raw API 仍会建立 transport 并发送请求。
+- 写操作仍需目标、影响和用户确认。

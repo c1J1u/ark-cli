@@ -26,7 +26,7 @@ arkcli models get --id doubao-seed-2-0-pro-260215 --version 260215
 
 ## 返回值
 
-JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版本、能力、定价、限流等信息。
+JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版本、能力、定价、限流等信息。缓存能力看顶层 `cache_types`：可能包含 `explicit_cache` / `implicit_cache` / `session_cache` / `prefix_cache`；`capabilities.caching` 仅为旧版兼容字段，不用于判断全部缓存类别。
 
 ## 常见错误
 

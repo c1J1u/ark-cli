@@ -29,10 +29,10 @@ arkcli +code-example --model doubao-seedream-5-0 --version 260128
 arkcli +code-example --model doubao-seedream-5-0-260128
 
 # 只看 Python 示例
-arkcli +code-example --model doubao-seedream-5-0 --lang python
+arkcli +code-example --model doubao-seedream-5-0 --language python
 
 # 只看 curl 示例（shell 是别名，等价）
-arkcli +code-example --model doubao-seedream-5-0 --lang curl
+arkcli +code-example --model doubao-seedream-5-0 --language curl
 
 # 指定输出目录
 arkcli +code-example --model doubao-seedream-5-0 --output-dir ./my-examples
@@ -46,10 +46,12 @@ arkcli +code-example --model doubao-seedream-5-0 --format json
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `--model` | string | ✓ | 基础模型名（`doubao-seedream-5-0`）或合并 ID（`doubao-seedream-5-0-260128`） |
-| `--version` | string | | 模型版本，如 `260128`；若 `--model` 已带版本可省略 |
-| `--lang` | string | | 语言过滤：`python` / `go` / `java` / `node` / `curl`（`shell` 是 `curl` 的别名），默认全部输出 |
+| `--version` | string | | 模型版本，如 `260128`；不传时 CLI 自动推导 —— 合并 ID 拆版本 → `ArkModels` 匹配 → `GetFoundationModel` 取 `PrimaryVersion` 兜底；三条链路都拿不到才报错要求显式传 `--version` |
+| `--language` | string | | 语言过滤：`python` / `go` / `java` / `node` / `curl`（`shell` 是 `curl` 的别名），默认全部输出 |
 | `--output-dir` | string | | 本地输出目录，默认 `./ark-examples/<model>` |
 | `--format json` | flag | | 输出结构化结果，适合 Agent 或脚本继续消费 |
+
+> **版本推导契约**：`OpenGetSampleCode` 接口要求 `ModelVersion` 必填。CLI 通过上述回退链自动补齐；custom model 走 `PrimaryVersion` 兜底时 `scenario` 自动切成 `finetune_inference`（fine-tune 推理示例模板），foundation model 无论是显式版本、合并 ID 拆分还是 `PrimaryVersion` 兜底，一律保持 `quick_access`。
 
 > **0.1.17 变更**：旧版的 `--endpoint-id` 已移除 —— 新数据源 `OpenGetSampleCode` 按基础模型取码，不再支持按已有接入点 ID 取码。如需把代码指向某个 endpoint，自行把生成代码里的 `model="..."` 改成你的 `ep-xxx` 即可。
 
@@ -97,7 +99,7 @@ arkcli +code-example --model doubao-seedream-5-0
 ```bash
 arkcli +code-example \
   --model doubao-seedream-5-0 \
-  --lang python \
+  --language python \
   --format json
 ```
 

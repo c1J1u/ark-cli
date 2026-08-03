@@ -1,6 +1,6 @@
 ---
 name: arkcli-resources
-version: 1.1.0
+version: 1.2.0
 description: "arkcli resources 实时控制面查询：列出当前/指定 profile 可见资源及其调用兼容性；把 Endpoint 解析为权威模型、模态与候选工作流。read-only，不写 profile.yaml。用户临时给出 ep-... 但未说明该走 Chat、Understand 还是 Gen 时优先使用。"
 metadata:
   requires:
@@ -14,8 +14,12 @@ metadata:
 
 ## 使用原则
 
+- `arkcli resources` 域始终只读。即使用户在资源列表语境中提出创建意图，也必须先转读 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)，不能由本 Skill 创建、修改或删除资源
+- 普通“部署模型并获得 Endpoint”的产品意图继续走 `arkcli +deploy`。该在线工作流不支持 Client Preview，**不得执行 `arkcli +deploy --dry-run`**，也不得为了获得 Preview 而静默降级成底层 CRUD
+- 转入 Deploy Skill 后，先只读核对模型、名称、Region、配置与计费影响并复述给用户；在收到本轮新的明确确认前，**不得在同一轮执行真实** `arkcli +deploy`。严禁 Agent 自行添加 `--yes`、`echo Y` 或设置 `ARKCLI_ALLOW_HEADLESS_ACTIVATION`
+- 只有用户明确要求 raw CRUD、精确 CreateEndpoint 请求或 CI/脚本预览时，才转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，使用叶子命令 `arkcli infer endpoint create ... --dry-run`；Preview 完成后仍需新的确认才能真实执行
 - `arkcli resources list` 是 read-only 实时控制面查询，**每次都打上游**，没有本地缓存
-- `arkcli resources resolve <ep-id>` 读取 Endpoint 绑定与模型权威元数据，返回可用工作流、生成模态与 Endpoint region；不按 ID/模型名子串猜用途
+- `arkcli resources resolve <ep-id>` 先按 `endpoint_model_type` 判定真实绑定。Custom Model Endpoint 的 `model_id` / `custom_model_id` 必须保持 `cm-...` 身份，基础模型只通过 `base_model_*` 表达 lineage 与能力来源；不按 ID/模型名子串猜用途
 - 派发逻辑跟 profile.Type 走：platform → `ListEndpoints`，agent-plan / coding-plan → 对应 plan API
 - `agent-plan-team` 三模态使用团队席位 Key + 套餐模型；`coding-plan-team` 只有 text 使用团队席位 Key，image/video 虽可看到 platform Endpoint，但调用还需要后付费 API Key
 - `resources list` 区分“账号可见”与“当前 profile 可调用”：读取 `invocable` 与 `required_overrides`，不要看到 ID 就断言当前凭证可用
@@ -34,7 +38,8 @@ metadata:
 ## 反唤起信号
 
 - 用户要 **找模型** / **挑模型** / "哪个模型最强 / 性价比最高" → 转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)（带 enrich + 加权排序）
-- 用户要 **创建 endpoint** → 转 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)（`arkcli +deploy`）
+- 用户要 **创建 endpoint** → 转 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)（`arkcli +deploy`）；本轮只做只读核对、复述和确认，不直接执行
+- 用户明确要 **raw CreateEndpoint / CI / 精确请求预览** → 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，使用 `infer endpoint create --dry-run`
 - 用户要 **管理 endpoint**（start / stop / get / update / list 详情）→ 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)
 
 ## resources vs models 的区别
@@ -51,7 +56,7 @@ metadata:
 
 ## Agent 快速执行顺序
 
-1. 用户给了 `ep-...` → `arkcli resources resolve <ep-id> --format json`，先读 `supported_workflows` / `generation_modality` / `requires_user_intent`
+1. 用户给了 `ep-...` → `arkcli resources resolve <ep-id> --format json`，先读 `endpoint_model_type` 与 `model_id`，再读 `supported_workflows` / `generation_modality` / `requires_user_intent`
 2. 不确定当前 profile → `arkcli profile show --format json`（看 `type`）
 3. text 资源 → `arkcli resources list --modality text --format json`
 4. image / video 资源 → `arkcli resources list --modality image --format json` / `--modality video`
@@ -88,6 +93,12 @@ metadata:
 
 `is_default` 仅在 `items[].id == current_default` 时出现；`invocable=false` 时查看
 `required_overrides`（例如 `["api_key"]`）。可见资源不等于当前凭证可调用。
+
+`resources resolve` 的绑定身份契约：
+
+- `endpoint_model_type=CustomModel`：`model_id == custom_model_id == cm-...`；`base_model_*` 仅描述训练 lineage 和能力元数据来源，不得拿 `base_model_id` 替代真实绑定。
+- `endpoint_model_type=FoundationModel`：`model_id` 仍是基础模型 ID，既有语义不变。
+- `resolution_warnings` 非空时保持 fail-soft，不得根据同时出现的 Custom/Foundation 引用自行猜绑定。
 
 ## 常见错误
 

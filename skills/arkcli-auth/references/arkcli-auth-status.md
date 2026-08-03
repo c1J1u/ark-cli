@@ -9,10 +9,10 @@ arkcli auth status
 输出通常包含：
 
 - `volc_sso` 或 `aksk`（取决于当前 profile 的 tenant 和登录方式）
+- 顶层 `identity_type`：当前账号主体类型，固定为 `individual`（个人）或 `enterprise`（企业）。它是账号级事实，与 SSO / AKSK / `init-volc` 等登录方式无关
 - `volc_sso.identity`：当前火山账号身份事实（`name` / `account_id` / `trn` / `is_root`），并附带账号实名认证状态：
   - `verified`：是否完成实名认证（`true` / `false`）
-  - `verify_type`：实名主体类型，`individual`（个人）或 `enterprise`（企业）；**仅在已实名时出现**
-  - 实名探测失败（网络 / STS / 权限）时 `verified` 与 `verify_type` **两个字段都省略**（与"未探测"语义一致，绝不假报已实名/未实名）
+  - 实名探测失败（网络 / STS / 权限）时 `verified` 省略（与"未探测"语义一致，绝不假报已实名/未实名）
   - 实名是账号级事实，与 profile / project / 登录方式无关；实名是"开通模型 / 开通云产品 / 创建推理接入点"的必要前提
 - `ark_api_key`：当前缓存的 ARK API Key
 - `ark_api_key.key / status`：当前 Key 掩码值，以及与远端列表对齐后的状态

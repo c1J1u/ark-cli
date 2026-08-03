@@ -14,8 +14,8 @@
 
 | 形态 | 行为 |
 |---|---|
-| 不传 `--yes` 不传 `--dry-run` | 协议闸门,返协议清单 + **价格** + `next_step`,内部走 EstimatePrice (IsRenew=true / Scene=RENEW),不下单 |
-| `--dry-run` | 同上但**不带协议清单** (脚本"只询价"出口) |
+| 不传 `--yes` 不传 `--estimate` | 协议闸门,返协议清单 + **价格** + `next_step`,内部走 EstimatePrice (IsRenew=true / Scene=RENEW),不下单 |
+| `--estimate` | 在线询价，不带协议清单 (脚本"只询价"出口) |
 | `--yes` | 真续费,自动扣款 |
 
 > 闸门返回值会**反查 tier**填回:个人版从 `ListSubscribeTrade.InfoList[0].BizInfo` 来,团队版从 `ListSeatInfos` 用 SeatIDs[0] 反查。`echo.tier` 字段供 agent 跟用户确认"还是续这个档位吗"。
@@ -28,7 +28,7 @@ arkcli plans renew --plan agent-plan
 arkcli plans renew --plan agent-plan-team --duration 3 --seat-ids seat-001,seat-002
 
 # 第 2 步: 询价 (可选)
-arkcli plans renew --plan agent-plan --duration 6 --dry-run
+arkcli plans renew --plan agent-plan --duration 6 --estimate
 
 # 第 3 步: 用户同意协议后, 真续费
 arkcli plans renew --plan agent-plan --yes
@@ -50,7 +50,7 @@ arkcli plans renew --plan coding-plan-team --seat-ids seat-aaa --yes
 
 ## 返回值 (协议闸门, 默认形态)
 
-不传 `--yes` 不传 `--dry-run` 时:
+不传 `--yes` 不传 `--estimate` 时:
 
 ```json
 {

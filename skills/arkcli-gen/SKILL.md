@@ -1,7 +1,7 @@
 ---
 name: arkcli-gen
 version: 2.1.0
-description: "火山方舟 Ark 图片/视频生成入口：支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。dry-run 复用真实模态解析但不生成、不计费、不存储。图片同步返回，视频异步轮询。"
+description: "火山方舟 Ark 图片/视频生成入口：支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。图片同步返回，视频异步轮询。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -29,6 +29,24 @@ metadata:
 ```
 
 把这三步压成"直接 `+gen` 猜一条命令"，正是失败之源：模型名形态不对会 404，参数模型不支持会被拒。
+
+## 模态解析硬契约
+
+`+gen` 的生产调用按以下固定优先级解析能力：
+
+```text
+explicit --modality > output_modalities > task types > unknown
+```
+
+- 直接传版本化模型 ID 时，读取 ArkModels 返回的 `output_modalities`；缺失时再读取 FoundationModel 的 `task_types` / `filter_task_types`。
+- 传 `ep-*` 时，先读取 Endpoint 的 `ModelReference.FoundationModel(name, version)`，再精确匹配同版本模型的上述结构化元数据。
+- **模型名与 DisplayName 只用于定位模型，不参与模态判断**。不要从 `seedream`、`seedance` 或任何国内/海外品牌前缀推断 image/video。
+- 结构化元数据缺失或互相冲突时返回 `unknown`，提示用户显式传 `--modality image|video`；禁止静默猜测。
+- `+gen --dry-run` 是纯本地 Client Preview：不读取 Endpoint/模型元数据、不调用
+  生成 API，也不下载或打开文件。显式 `--modality` 最可靠；已知
+  `seedream`/`seedance` 模型名可本地判断，其他模型或 Endpoint 必须显式传
+  `--modality image|video`。在线才能补齐的执行上下文会以 `unresolved` 和
+  `fidelity=partial` 明示。
 
 ## 适用场景
 
@@ -106,6 +124,8 @@ arkcli models get "$MODEL" --transform supported_params
   - **可直接使用 Step 1 选出的模型 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
   - 查到模型但 `supported_params` 为空 / `null`（很多模型没配，如 `doubao-seedance-2-0` / `doubao-seedance-1-5-pro`）→ **不用手动补参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
 - **`$MODEL` 是 EP（`ep-xxx`）**：跳过本步。EP 查不到 supported_params 是正常的；且 `+gen` **不会**对 EP 套兜底默认（EP 背后模型可能支持更高能力，强填会误降级），直接 degrade-open 由服务端裁决。
+  - 这里只是跳过 **supported_params 查询**；真实 `+gen` 仍会沿 `Endpoint → ModelReference → FoundationModel 元数据` 自动解析 image/video。
+  - 只有结构化元数据缺失/冲突时，才需要显式补 `--modality`。
 
 ## Step 3 据可用参数生成
 
@@ -151,7 +171,7 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 |---|---|
 | "生成完直接打开/帮我打开看看/出来就弹给我" | `arkcli +gen --open`（强制用系统默认程序打开；默认在交互终端已自动打开） |
 | "别自动打开/不要弹窗/我在脚本里跑别开" | `arkcli +gen --no-open`（强制不打开） |
-| "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen --dry-run`（可只读解析 Endpoint；不会真正生成、计费或存储） |
+| "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen ... --dry-run --format json`；核对 `steps`、`unresolved` 和 `fidelity`，不要把 partial 预览当作服务端校验 |
 | "强制执行/跳过校验/我知道不支持但想试一下" | `arkcli +gen --force` |
 | "连贯多张/按顺序/统一风格/4格漫画/连续图片" | `arkcli +gen --sequential` |
 | "我之前的任务/生成历史/任务列表/任务状态" | `arkcli gen list`（列出所有异步生成任务） |

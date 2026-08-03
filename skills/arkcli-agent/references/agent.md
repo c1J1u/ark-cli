@@ -10,7 +10,7 @@
 4. 创建 Agent 默认优先从本账号已有 custom skill 中选择，即使用户没有显式说“使用 custom skill”：按需执行 `arkcli agent skill list --source custom --limit 100 --format json`。由 AI agent 读取这一页全部 `Items`，按名称、描述、能力和版本判断；没有合适候选时，将响应中的 `NextPage` 原样传给 `--page` 继续拉下一页，直到命中或没有下一页。不要只调用 `search --source custom "<query>"` 后选第一条；用户明确要求完整清单或需要离线分析时才使用 `--page-all`。
 5. custom skill 分页查完仍没有合适候选，或用户明确要求 market/SkillHub skill 时，再搜索：`arkcli agent skill search "<query>" --limit 10 --format json`。根据名称、描述、能力标签、版本选择 skill。不要臆造 `SkillId`；搜不到时可创建基础 agent，并说明未找到匹配 skill。
 6. 组装参数：默认 speed `standard`，补领域化 system prompt，挂相关 skill。线上测试资源名使用 `arkcli` 前缀；用户没给名字时生成 `arkcli-<domain>-agent-<YYYYMMDDHHMMSS>`，如 `arkcli-data-agent-20260707153000`。
-7. 先 `--dry-run --format json` 看 `Model`、`Skills`、默认 `Tools`、`McpServers`。
+7. 先执行同一条 `agent agent create ... --dry-run --format json`，读取零网络 `preview.v1`，向用户复述 `Model`、`Skills`、默认 `Tools`、`McpServers` 和 `unresolved`。计划中的 `unresolved` 表示真实执行时才会完成的 Managed Agent/模型开通检查、裸 custom Skill 最新版本解析或 `--skill-zip` 上传结果；不得把它们描述成已经验证通过。用户确认后去掉 `--dry-run` 再真实创建。
 8. 真实创建时，CLI 会先检查 Managed Agent 能力和模型开通状态：模型未开通会走共享模型开通确认链路；非交互环境不会自动开通，返回 `model_activation_required`。Managed Agent 产品/能力未开通时，TTY 下会提示用户确认并调用前端同款 `OpenChargeItems(ResourceType=DataManagedAgentSum, ResourceNames=[sandbox, web_search])`，非交互环境返回 `managed_agent_activation_required`，不会自动开通。
    - 如果已在对话中拿到用户明确确认，非交互调用可重跑原命令并同时加 `--yes` 和环境变量 `ARKCLI_ALLOW_HEADLESS_ACTIVATION=1`。不要在没有用户确认时设置该环境变量。
 9. 真实创建后立刻 `agent agent get <agent-id> --format json` 确认落库。对用户回显时必须展示服务端最终配置，不要只展示“已创建”或单独摘要某个字段。
@@ -73,17 +73,16 @@ arkcli agent agent create \
 用户说“复制 / fork / 基于已有 agent 改一个新版”时，优先用 `+new-agent --fork`，不要手动 get 后重新拼完整 create 请求。
 
 ```bash
-arkcli +new-agent --fork agent-xxx --dry-run --format json
 arkcli +new-agent --fork agent-xxx --format json
 ```
 
 - 用户明确给了源 `agent-id` 但没给新名字时，不要停下来只问名字；CLI 会先 `GetAgent`，默认用源 Agent 的 `Name` 加 `copy-` 前缀，即 `copy-<source-agent-name>`。如果源 name 为空，才 fallback 到 `copy-<agent-id-tail>`。
 - 如果用户只说“复制那个数据分析 agent”但没给 ID，先用 `agent agent list --name <keyword>` 查候选；候选唯一时可继续复制，候选多个时必须让用户确认准确 `agent-id`。
-- 复制前先跑一次 `--dry-run --format json` 检查最终 request。若用户已经明确要求“复制/创建”，dry-run 通过且无多候选/缺权限等歧义时，继续执行真实 `+new-agent --fork ... --format json`。
+- `+new-agent --fork` 需要在线读取源 Agent，无法提供纯本地 Client Preview，因而不注册 `--dry-run`。先用 `agent agent get <id>` 核对源配置，复述覆盖项并取得确认后执行复制。
 - `--fork` / `--from` 会先 `GetAgent`，复制源 Agent 的 `Model`、`System`、`Description`、`Tools`、`Skills`、`McpServers`、`Multiagent`、`Metadata`、`Tags`，再调用 `CreateAgent` 创建新 Agent。
 - `--name` 可显式覆盖默认复制名。
 - 用户传入的 create flags 会覆盖复制来的配置，例如 `--system`、`--model`、`--description`、`--skill`、`--tool`、`--mcp-server`。
-- P0 语义里，`--skill` / `--tool` / `--mcp-server` 是替换对应列表，不是追加；需要追加时先 dry-run 看源配置，再传完整列表。
+- P0 语义里，`--skill` / `--tool` / `--mcp-server` 是替换对应列表，不是追加；需要追加时先用只读 `agent agent get` 看源配置，再传完整列表。
 - 默认创建成功后会再次 `GetAgent` 回显最终配置；只想拿 `CreateAgent` 响应用 `--no-echo`。
 - 创建结果中的 `System` 就是实际生效的 system prompt。人类可读回显至少必须展示以下字段：
   - 身份：`Id`、`Name`、`Description`、`Version`、`ProjectName`
@@ -116,9 +115,9 @@ arkcli +iterate agent-xxx \
 
 - `--environment-id` / `--env-id` 可选；省略时 CLI 使用当前项目最近创建的 Environment。对环境有明确要求时应显式传入。
 - 不要因为用户没有提供环境 ID 就中断或要求补参：真实执行时 CLI 会用 `ListEnvironments` 按 `CreateTime Desc, Limit=1` 自动选择最新环境；只有没有可用环境时，才提示先创建环境或显式传入 `--environment-id`。
-- `--diff` / `--dry-run` 不调用 `ListEnvironments`，会在预览的 `CreateSession.EnvironmentId` 中显示 `<auto-select-latest-environment>`；这是占位符，不要把它作为真实环境 ID 发送。
+- `--diff` 不调用 `ListEnvironments`，会在在线差异预览的 `CreateSession.EnvironmentId` 中显示 `<auto-select-latest-environment>`；这是占位符，不要把它作为真实环境 ID 发送。`+iterate` 不注册 Client Preview `--dry-run`。
 - `--resource`、`--vault-id` / `--vault-ids`、`--tags` 会传给新 session。
-- `--diff` 或 `--dry-run` 只预览 `UpdateAgent`、`CreateSession`、chat send/stream 请求，不改远端；省略环境时预览会显示 `<auto-select-latest-environment>`。
+- `--diff` 会先读取当前 Agent，再只预览 `UpdateAgent`、`CreateSession`、chat send/stream 请求，不改远端；它是命令专用的在线 diff，不是零网络 Client Preview。
 - `--no-chat` 只更新 agent 并创建 session，不发送消息、不进 REPL。
 - `--tool` / `--skill` / `--mcp-server` 在 iterate 中仍是全量替换语义。
 
@@ -255,6 +254,5 @@ arkcli agent agent create \
   --format json
 
 # Fork existing agent
-arkcli +new-agent --fork agent-20260707063932-vbfjd --dry-run --format json
 arkcli +new-agent --fork agent-20260707063932-vbfjd --format json
 ```

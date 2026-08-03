@@ -58,11 +58,10 @@
 ```bash
 arkcli doctor                              # 默认，无参
 arkcli doctor --format json                # 完整结构化 JSON（默认）
-arkcli doctor --dry-run                    # 只打印会调什么，不发实际请求
 arkcli doctor --debug 2>&1 | head -20      # 网络时序看得清
 ```
 
-> 命令是**只读体检**，不需要登录也能跑（onboarding 场景专用）。当前 profile 未配置时，`configuration` 段照出 `credentials_present=false` + 原因，不会 fail。
+> 命令本身就是**只读体检**，不注册 `--dry-run`，不需要登录也能跑（onboarding 场景专用）。当前 profile 未配置时，`configuration` 段照出 `credentials_present=false` + 原因，不会 fail。
 
 ## 第二步：读输出（4 段）
 
