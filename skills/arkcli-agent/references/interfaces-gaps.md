@@ -41,7 +41,7 @@
 - PRD 示例中的 inline/local skill 目录形态未做成直接 `--skill '{type:inline,...}'`；当前推荐路径是本地 zip 用 `agent skill create --zip` 或 `agent agent create --skill-zip` 上传成 custom skill。
 - `agent agent list` 默认拉单页；需要遍历全部候选时使用全局 `--page-all`，并按数据量设置 `--page-limit`。模糊复制/查找若仍返回多个候选，需要让用户确认。
 - Env 创建对线上后端需要显式 `Config.Networking`；PRD 中只传 `{Type: cloud}` 的简写不够用，skill 文档已按线上行为改为 `{Type: cloud, Networking: {Type: unrestricted}}`。
-- 数据面 `/api/v3/sessions/:id/events/stream` 支持重复的 `event_deltas=agent.message&event_deltas=agent.thinking` 查询参数；`events stream`、`+tail`、`events send --wait`、`+new session` 和 `+iterate` 默认启用，`--no-event-deltas` 可回退到完整事件。CLI 会渲染 `event_start/event_delta` 并在最终完整事件到达时避免重复展示，断线补偿仍通过不带该查询参数的 `events list` 完成。
+- 数据面 `/api/v3/sessions/:id/events/stream` 支持重复的 `event_deltas=agent.message&event_deltas=agent.thinking` 查询参数；`events stream`、`+tail`、`events send --stream`（兼容 `--wait`）、`+new session` 和 `+iterate` 默认启用，`--no-event-deltas` 可回退到完整事件。CLI 会渲染 `event_start/event_delta` 并在最终完整事件到达时避免重复展示，断线补偿仍通过不带该查询参数的 `events list` 完成。
 - 前端的 `StreamManagedAgentSessionEvents` 仍是 ArkBFF 的 POST 流式 preview 协议。CLI 按“不直连 ArkBFF”的约束直联数据面，因此只对齐已确认的数据面 Event Deltas 语义，不依赖或宣称复用 BFF preview 的请求封装。
 - `[MA]开通时支持赠送额度包` 在需求单当前状态为已终止，现有 OpenTOP 仅有人工确认后的 `OpenChargeItems`，没有可确认的 gift quota 字段/Action；CLI 保持手动确认开通，不自动伪造赠送额度。
 - “企业自定义 Skill”若指当前账号/项目下的 custom Skill，CLI 已通过 TOP `ListSkills` 选择并以 `Type=custom` 挂载；若要求额外企业 Skill 空间/组织 scope，当前公开 `ListSkills` 请求契约没有可确认的 enterprise/space 字段，不能硬接。现有 `--skill-space-id` 不代表后端已支持该过滤字段。

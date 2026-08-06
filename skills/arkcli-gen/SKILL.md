@@ -71,7 +71,7 @@ explicit --modality > output_modalities > task types > unknown
   │
   ▼ Step 2【强制·EP 除外】查 $MODEL 可用参数  ──► arkcli models get $MODEL --transform supported_params
   │     模型名 + 有 sp → **只能**用列出的参数，取值落 min/max/enum 内
-  │     模型名 + sp 空(没配,如 2.0/1.5-pro) → +gen 自动套 modality 兜底默认(video 720p/5s, image 2048)
+  │     模型名 + sp 空(未配置或当前不可解析) → +gen 自动套 modality 兜底默认(video 720p/5s, image 2048)
   │     EP(ep-xxx)            → 跳过, 不强填(背后能力未知), 服务端裁决
   │
   ▼ Step 3 据可用参数生成  ──► arkcli +gen --model $MODEL [Step2 允许的参数] "prompt"
@@ -122,7 +122,7 @@ arkcli models get "$MODEL" --transform supported_params
 - **`$MODEL` 是模型名**：拿到该模型的 `supported_params` 清单（每项含 `name / type / support / min / max / enum / required`）。
   - > **MUST：Step 3 只能使用这里 `support=true` 的参数，且取值必须落在 `min/max/enum` 范围内。** 不在清单里的参数（或 `support=false`）传了会被 `+gen` 拒绝。
   - **可直接使用 Step 1 选出的模型 id**（点号 / display 形态如 `doubao-seedance-2.0-fast` 都行）：`models get` 会自动按 DisplayName 归一化到规范连字符 name，无需手动转。极个别仍报 `not found` 才用 `arkcli models search <族名>` 核对名字。
-  - 查到模型但 `supported_params` 为空 / `null`（很多模型没配，如 `doubao-seedance-2-0` / `doubao-seedance-1-5-pro`）→ **不用手动补参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
+  - 查到模型但 `supported_params` 为空 / `null` → 该版本未配置参数目录，或上游目录当前不可解析；若 stderr 有 `warn: model supported_params enrichment failed: ...`，保留该告警用于排障。**不要手动猜参数**：`+gen` 会自动用内置 modality 兜底默认（video: `resolution=720p` / `duration=5` / `ratio=adaptive`；image: `size=2048x2048`）填充你没指定的参数。直接进 Step 3。
 - **`$MODEL` 是 EP（`ep-xxx`）**：跳过本步。EP 查不到 supported_params 是正常的；且 `+gen` **不会**对 EP 套兜底默认（EP 背后模型可能支持更高能力，强填会误降级），直接 degrade-open 由服务端裁决。
   - 这里只是跳过 **supported_params 查询**；真实 `+gen` 仍会沿 `Endpoint → ModelReference → FoundationModel 元数据` 自动解析 image/video。
   - 只有结构化元数据缺失/冲突时，才需要显式补 `--modality`。

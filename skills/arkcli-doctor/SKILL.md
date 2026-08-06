@@ -1,7 +1,7 @@
 ---
 name: arkcli-doctor
 version: 1.0.0
-description: "arkcli doctor 统一诊断入口，覆盖 CLI 健康、account、error、infer-endpoint、model、metrics 与 report。用户给错误码/错误 JSON、模型名、ep-xxx，或问方舟调用为什么失败/慢/超时/限流、健康度、用量配额、P99/Cache、内容审核/PolicyViolation、DNS/TCP/TLS/时钟时使用；账号实名/资金余额/IAM/VMP/TOS 走 doctor account。模型名或 ep-id 与异常同时出现时优先 doctor model/infer-endpoint。Seedance 2.x 效果问题：只描述效果差，或同时要求检查/诊断/排查/分析原因/看指标和上报时，必须先走 model/infer-endpoint；诊断返回 report_suggestion 后询问，用户确认才 report。只有明确要求直接上报且未要求任何诊断时，才可直达 doctor report。Seedance 1.x、Seedream、生成失败、错误码、expired、429 不走 report。安装/登录/profile/API Key 归 arkcli-shared/auth；纯用量明细归 arkcli-usage；部署、Endpoint CRUD、模型元信息归对应 skill。账号余额默认指资金余额走 account，只有免费/套餐/媒资库额度走 usage。"
+description: "arkcli doctor 统一入口，覆盖 CLI 健康、account、error、infer-endpoint、model、metrics、report 与 Ark 图片/视频来源特征验证。用户给 1-20 个媒体 URL 并问是否由 Ark/Seedance/Seedream 生成时，走 doctor +verify-origin：整批只披露并确认一次费用，确认前不发 Create/Get 业务请求，最终完整转交服务端 JSON，禁止解释 IsOfficial。其余错误码、模型名、ep-xxx、失败/慢/超时/限流、健康度、P99/Cache、内容审核、DNS/TCP/TLS/时钟等按正文诊断路由。来源验证不判断内容真假、版权归属、法律认证或内容安全。安装/登录/profile/API Key 归 arkcli-shared/auth；纯用量明细归 arkcli-usage；部署、Endpoint CRUD、模型元信息归对应 skill。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -18,9 +18,9 @@ metadata:
 
 > 边界：**安装、版本、登录、profile、AK/SK 认证**类问题归 [`arkcli-shared`](../arkcli-shared/SKILL.md) / [`arkcli-auth`](../arkcli-auth/SKILL.md)；这里只覆盖 `arkcli doctor` 命令家族（业务侧诊断）。
 
-## 七个 Domain（一个 skill 收口）
+## 八个 Domain（一个 skill 收口）
 
-本 skill 一次性覆盖七个平行 domain。每个 domain 一份 reference，按用户场景路由：
+本 skill 一次性覆盖八个平行 domain。每个 domain 一份 reference，按用户场景路由：
 
 | Domain                | 命令                                | Reference                                                                                       | 解决什么                                                                  |
 |-----------------------|-------------------------------------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
@@ -31,6 +31,7 @@ metadata:
 | **model**             | `arkcli doctor model <name>`        | [`references/scope-model.md`](references/scope-model.md)                                       | 跨接入点的模型整体诊断（用量 / 配额 / top endpoint / 模态自适应指标）     |
 | **metrics**           | `arkcli doctor metrics <id>`        | [`references/scope-metrics.md`](references/scope-metrics.md)                                   | 36 条具名 PromQL 查询（指标值直出，不打健康判定，给 LLM/SRE 拿数）        |
 | **report**            | `arkcli doctor report`              | [`references/scope-report.md`](references/scope-report.md)                                     | seedance 2.x 效果问题上报（badcase → 方舟排障平台）                       |
+| **verify-origin**     | `arkcli doctor +verify-origin ...`  | [`references/verify-origin.md`](references/verify-origin.md)                                   | 对 1-20 个图片/视频 URL 创建来源特征验证任务并轮询官方结果                |
 
 ## 命令家族
 
@@ -42,9 +43,24 @@ arkcli doctor model <model-name>               # 模型维度诊断（→ refere
 arkcli doctor metrics <query-id>               # 具名 PromQL 查询（→ references/scope-metrics.md）
 arkcli doctor error <error-code>               # 错误码查表（只读，→ references/error-codes.md）
 arkcli doctor report --task-id ... --feedback ...   # seedance 2.x 效果问题上报（→ references/scope-report.md）
+arkcli doctor +verify-origin <url> [url...]     # 1-20 个媒体来源特征验证（→ references/verify-origin.md）
 ```
 
-> 命令是**扁平 verb**。`--window <duration>`（默认 24h）控制 VMP 时间窗；结构化输出优先使用 `--format json`。修复建议由诊断结果和 reference 给出，不要给 doctor 命令拼接未注册的参数。
+> 普通诊断命令是扁平 verb；`+verify-origin` 是显式的任务型 workflow。`--window <duration>`（默认 24h）控制 VMP 时间窗；结构化输出优先使用 `--format json`。修复建议由诊断结果和 reference 给出，不要给 doctor 命令拼接未注册的参数。
+
+## 来源验证优先路由
+
+用户要验证一个或多个图片/视频是否包含 Ark、Seedance、Seedream 生成来源特征时：
+
+1. 先读取 [`references/verify-origin.md`](references/verify-origin.md)；
+2. 一次命令传入全部 URL，最多 20 个，禁止为每个 URL 各启动一个进程；
+3. 第一次调用不带 `--yes`，获取整批费用披露；这一步不获取 invoker，也不发 Create/Get 业务请求；
+4. 完整展示披露，并在披露之后等待用户明确确认；
+5. 用户确认后，对**同一批参数只加一次 `--yes`**，该确认覆盖整批所有 URL；
+6. CLI 内部完成 Create、20 QPS pacing、每 5 秒 Get 轮询；Agent 不写 shell 循环；
+7. 最终 stdout JSON 必须成为回复的全部内容，不加解释、摘要、翻译、代码围栏或前后缀。
+
+该路由不用于判断媒体内容真假、假新闻、版权归属、法律认证、内容安全、画质或播放质量。`IsOfficial=True/False/Null` 只能按服务端原值转交，Agent 不得自行下结论。
 
 ## 核心范式：从用户消息到答案
 
@@ -187,8 +203,9 @@ doctor 默认输出的是**聚合统计值**（如 `error_rate`、`ttft.p99`、`
 ## 安全与边界
 
 - **只读优先**：`arkcli doctor` 默认只读体检，不消耗推理 token、不改任何资源。
+- **来源验证是显式例外**：`doctor +verify-origin` 会创建远端异步任务，Volc 新建批次可能收费；整批只确认一次，确认前禁止获取 invoker 或发任何请求。
 - **修复建议不等于自动执行**：doctor 诊断结果和 reference 只负责给出修复路径；真正执行其它命令前必须先展示影响，写操作继续遵守对应命令的确认门。
-- **越权边界**：所有外部调用都用用户 AK/SK 签名（Ark API / VMP / IAM）；不读平台内部数据（k8s / 调度器等）；不跨账号横比。
+- **越权边界**：控制面调用使用当前身份的 AK/SK 或 SSO 派生 STS 签名；不读平台内部数据（k8s / 调度器等），不跨账号横比。
 - **不替用户烧 token**：诊断本身不烧 token，但修复方案如果是重新 `+gen` / `+chat`，先把命令给用户看、等确认。
 - **不假装能修没上线的能力**：`needs_backend` 字段非空（如 `deface`）时如实告诉用户该能力尚未上线，给可行替代。
 
@@ -255,6 +272,8 @@ doctor 对 RPM/TPM 配额压力的阈值是写死的（用户后续可配置）�
 - [`references/scope-infer-endpoint.md`](references/scope-infer-endpoint.md) — 单接入点诊断细则
 - [`references/scope-model.md`](references/scope-model.md) — 单模型诊断细则
 - [`references/scope-report.md`](references/scope-report.md) — seedance 2.x 效果问题上报（badcase report）
+- [`references/verify-origin.md`](references/verify-origin.md) — 1-20 个图片/视频来源特征验证、整批费用确认与严格结果转交
+- [`references/evals.md`](references/evals.md) — 来源验证 trigger、一次整批确认、恢复与严格转交回归
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — 加错误码 / scope check / fixer 的贡献入口
 - [arkcli-shared](../arkcli-shared/SKILL.md) — 认证 / 命令选择 / 安全规则
 - [arkcli-infer-endpoint](../arkcli-infer-endpoint/SKILL.md) — endpoint CRUD（doctor 不重复实现）

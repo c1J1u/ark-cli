@@ -128,9 +128,11 @@ search [keyword] [filters]
 ### Cache 与 SSO
 - ArkModels 是 Console BFF 接口，需要 SSO 凭证
 - 无 SSO（AK/SK only）→ enrich 静默跳过，模型仍能返回，filter 自动 no-op
-- Cache 路径按 `(profile, region, project)` 分 → 多账号/多 project 不串
-- TTL 概念不存在：**任何 search 调用都会触发后台异步刷新**，下次调用永远是新鲜数据
-- 启动时 cache 命中即返回，刷新由 detached 子进程执行（`arkcli models _refresh-cache`）
+- Cache 路径按 `(identity/account, profile, region, project)` 分；缺少权威 identity 时不启用持久缓存，避免跨账号复用
+- 默认 TTL 为 5 分钟，可通过 `ARKCLI_MODEL_CACHE_TTL` 调整；TTL 内只读本地缓存
+- TTL 过期后 stale-while-revalidate：当前调用先返回旧缓存，并由 detached 子进程刷新（`arkcli models _refresh-cache`）；同 scope 冷启动/刷新使用跨进程 single-flight
+- `auth logout` 与 fresh 账号切换会清除当前产品的全部模型缓存
+- 所有 ArkModels Action 都经过 transport 级账号隔离节流，最小间隔 250ms（约 4 QPS，为后端 5 QPS 留余量）
 
 ### 关键词匹配范围
 - name / display_name / short_name（命中 → 重排第 1 桶）

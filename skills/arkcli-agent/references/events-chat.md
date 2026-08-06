@@ -7,8 +7,8 @@
 | 场景 | 推荐入口 | 收尾要求 |
 | ---- | ---- | ---- |
 | 创建新 Session 并直接对话 | `arkcli +new session <agent-id> --message "..."` | CLI 自动监听到终态并输出回复 |
-| 已有 Session 发送问题并等待回复 | `agent session events send <session-id> --type user.message --text "..." --wait` | 必须等待 `agent.message` 和 `idle`/其他终态 |
-| 大 payload（约 50KB 以上）或长耗时调研/报告任务 | `agent session events send <session-id> ... --poll` | CLI 只轮询 `events list`，不建立 stream；更长任务仍可不带 `--wait/--poll`，由调用方分步轮询 |
+| 已有 Session 发送问题并等待回复 | `agent session events send <session-id> --type user.message --text "..." --stream` | 建立 SSE，等待 `agent.message` 和 `idle`/其他终态 |
+| 大 payload（约 50KB 以上）或长耗时调研/报告任务 | `agent session events send <session-id> ... --poll` | CLI 只轮询 `events list`，不建立 stream；更长任务仍可不带 `--stream/--poll`，由调用方分步轮询 |
 | 只投递事件，不等待 Agent | `agent session events send ...` | 仅适用于用户明确要求异步投递或脚本写入 |
 | 观察已有 Session 的实时事件 | `arkcli +tail <session-id>` | 持续读取到终态或明确错误 |
 
@@ -26,19 +26,19 @@ event_deltas=agent.message&event_deltas=agent.thinking
 2. 多个 `event_delta`：增量文本位于 `delta.content[].text`，通过 `event_id` 关联到 `event_start`；
 3. 最终的完整 `agent.message` 或 `agent.thinking` 事件。
 
-`+tail`、`events send --wait`、`+new session` 和 `+iterate` 的 pretty 输出会把增量显示成 `[agent delta #N]` / `[thinking delta #N]`，最终完整事件只显示一次完成标记，避免重复刷屏。`--raw` 保留原始 `event_start`、`event_delta` 和最终事件，适合调试或落盘；`agent session events stream` 默认输出原始 NDJSON。
+`+tail`、`events send --stream`、`+new session` 和 `+iterate` 的 pretty 输出会把增量显示成 `[agent delta #N]` / `[thinking delta #N]`，最终完整事件只显示一次完成标记，避免重复刷屏。`--raw` 保留原始 `event_start`、`event_delta` 和最终事件，适合调试或落盘；`agent session events stream` 默认输出原始 NDJSON。
 
 如果服务端或兼容环境不接受增量查询，使用 `--no-event-deltas` 回退到完整事件：
 
 ```bash
 arkcli +tail <session-id> --no-event-deltas
-arkcli agent session events send <session-id> --text "..." --wait --no-event-deltas
+arkcli agent session events send <session-id> --text "..." --stream --no-event-deltas
 arkcli agent session events stream <session-id> --no-event-deltas
 ```
 
 `events list` 是历史回查接口，不发送 `event_deltas`；断线补偿会继续按 cursor 拉取已落库的完整事件。增量帧与最终事件的重复投递由 CLI 按事件类型、事件 id 和增量内容去重。
 
-**硬规则：用户说“询问 Agent”“让 Agent 分析/回复/执行”时，不能把 write-only 的 `events send` 当作完整流程。短请求使用 `--wait`；大 payload 或长任务优先使用 `--poll`，更长任务使用不带 `--wait/--poll` 的 send，再用 `events list --after` 轮询或 `+tail` 读取回复。**
+**硬规则：用户说“询问 Agent”“让 Agent 分析/回复/执行”时，不能把 write-only 的 `events send` 当作完整流程。短请求使用 `--stream`；大 payload 或长任务优先使用 `--poll`，更长任务使用不带 `--stream/--poll` 的 send，再用 `events list --after` 轮询或 `+tail` 读取回复。**
 
 - `agent session list --agent-id <agent-id>` 按 Agent 过滤；CLI 会按 `ListSessionsForTop` 契约发送 `AgentIds` 数组。
 - Session 列表使用页码分页：`--page` 对应 `PageNumber`，`--limit` 对应 `PageSize`。需要遍历时使用全局 `--page-all`，并通过 `--page-limit` 控制最多页数。
@@ -46,17 +46,17 @@ arkcli agent session events stream <session-id> --no-event-deltas
 - `events send` 主动发事件。常用：
 
 ```bash
-arkcli agent session events send <session-id> --type user.message --text "帮我分析这个数据" --wait
+arkcli agent session events send <session-id> --type user.message --text "帮我分析这个数据" --stream
 ```
 
 - `+new session` 和 `+iterate` 的等待链路使用内部 event channel：先消费 `/events/stream`，连接结束或传输失败后按最后一个 event id 调 `/events?order=asc&limit=100&after=...` 补偿，再重连；stream 与 list 的重复事件按 id 去重。只有 idle、requires_action、failed 或 terminated 等终态才结束，耗尽重连次数会返回明确错误，不会把断流当成成功。
 - `+tail` 的 pretty/raw 输出也使用同一个 channel，因此断流后的 list 补偿事件会沿用相同的输出格式；pretty 模式默认将 user/thinking 等噪声文本压缩展示（普通事件最多 2000 字符，user/thinking 最多 320 字符），保留 event id 和省略数量；需要完整内容使用 `--raw` 或 `--max-event-chars 0`。底层 `agent session events stream` 保持原始流式接口语义。
 
 - `events send` 是写入接口，返回成功只表示事件已接收，不表示 Agent 已完成回复。AI Agent 编排已有 session 的对话时，必须继续执行：`events stream`/`+tail` 持续读取到 `session.status_idle`、`requires_action`、`failed` 或明确错误；需要最终 session 元数据时，再调用 `agent session get <session-id> --format json`。
-- 如果希望底层 send 命令直接完成一次对话，可加 `--wait`：CLI 会从发送响应提取最后一个 event id，自动进入可靠 channel，输出 Agent 回复并等待终态；`--raw` 可保留原始事件输出。没有 `--wait` 时仍是 write-only，适合脚本只提交事件。
-- `--wait` 适合短、边界明确的请求；它先在前台消费事件 stream，默认最长 120 秒（CLI 本地默认值，可用 `--wait-timeout` 覆盖）。stream 等待超时后会自动切换为基于 cursor 的 events list polling，默认再持续 120 秒，可用 `--wait-fallback-timeout` 覆盖；两阶段都超时才返回带 cursor 的非 0 错误。对于约 50KB 以上 payload、需要多轮工具调用、长文档调研或报告生成，优先使用 `--poll`，避免无意中让前台等待两段时间。
+- 如果希望底层 send 命令直接完成一次对话，可加 `--stream`：CLI 会从发送响应提取最后一个 event id，建立 SSE 并进入可靠 channel，输出 Agent 回复并等待终态；`--raw` 可保留原始事件输出。没有 `--stream` 时仍是 write-only，适合脚本只提交事件。`--wait` 保留为兼容别名。
+- `--stream` 适合短、边界明确的请求；它先在前台消费事件 stream，默认最长 120 秒（CLI 本地默认值，可用 `--wait-timeout` 覆盖）。stream 等待超时后会自动切换为基于 cursor 的 events list polling，默认再持续 120 秒，可用 `--wait-fallback-timeout` 覆盖；两阶段都超时才返回带 cursor 的非 0 错误。显式 `--stream` 即使 payload 约 50KB 以上也会建立 SSE；只有旧 `--wait` 兼容模式可能直接返回。长任务仍优先使用 `--poll`。
 - `--poll` 会在发送成功后只轮询 `/events` 列表，不建立 `/events/stream` 长连接；它仍会占用当前 CLI 进程直到终态，但更适合规避 stream 连接不稳定的长请求。默认每 2 秒轮询，可用 `--poll-interval` 调整。
-- `events send --wait` 和 `+new session` 也支持 `--max-event-chars` 控制 pretty 输出；该参数只影响终端展示，不改变发送给 Agent 的原始 payload。`--raw` 仍输出完整事件，适合机器留档。
+- `events send --stream` 和 `+new session` 也支持 `--max-event-chars` 控制 pretty 输出；该参数只影响终端展示，不改变发送给 Agent 的原始 payload。`--raw` 仍输出完整事件，适合机器留档。
 - 长任务推荐“send + cursor 轮询”：先发送并保留返回中的最后一个 event id，再每隔 2-5 秒执行 `agent session events list <session-id> --after <event-id> --order asc --limit 100 --format json`；读取新增 `agent.message`、`tool`、`thinking` 等事件，直到 `idle`、`requires_action`、`failed`、`terminated` 或 `archived`。需要实时人类可读输出时改用 `arkcli +tail <session-id>`。
 - 轮询单次超时或连接中断时，可以保留同一个 cursor 重试；遇到鉴权、权限、参数、开通状态或其他明确业务错误时立即停止。轮询达到总超时时间后必须报错并保留最后状态，不要报告为 Agent 已完成。
 - 推荐的长任务流程：
@@ -90,7 +90,7 @@ arkcli agent session events send <session-id> --type user.message --text "帮我
   - `/allow [tool_use_id]`、`/deny [tool_use_id] [reason]` 发送 tool confirmation。
 - 已知 `session-id` 的脚本/非交互场景不要用选择器，改用 `arkcli agent session events send <session-id>`、`arkcli agent session events stream <session-id>` 或 `arkcli +tail <session-id>`。
 - 面向 AI 工具调用的固定收尾顺序。短请求需要 Agent 回复时优先使用下面的单命令路径：
-  1. `agent session events send <session-id> --type user.message --text "..." --wait`。
+  1. `agent session events send <session-id> --type user.message --text "..." --stream`。
   2. 从输出读取 `agent.message` 等回复事件，并确认 `idle`、`requires_action`、`failed` 或其他终态。
   3. 需要状态、版本、环境或标题等最终元数据时，再执行 `agent session get <session-id> --format json`。
 - 如果必须拆开发送和监听，则使用以下固定收尾顺序：
@@ -145,7 +145,7 @@ arkcli agent session events send <session-id> \
 arkcli agent session list --agent-id <agent-id> --page 1 --limit 20 --format json
 arkcli --page-all --page-limit 10 agent session list --agent-id <agent-id> --limit 100 --format json
 arkcli agent session events send <session-id> --type user.message --text "<one small test task>" --format json
-arkcli agent session events send <session-id> --type user.message --text "<one small task>" --wait
+arkcli agent session events send <session-id> --type user.message --text "<one small task>" --stream
 arkcli agent session events send <session-id> --events '[{"type":"user.message","content":[{"type":"text","text":"先执行一个短任务"}]},{"type":"user.interrupt"}]' --format json
 arkcli agent session events send <session-id> --text "看这张图" --image file-xxx --format json
 arkcli agent session events send <session-id> --text "总结这个 PDF" --document @./report.pdf --format json

@@ -26,7 +26,7 @@ metadata:
 | 未指定工具 | 使用 CLI 注入的完整默认工具集；显式传 `--tool` 时全量替换默认工具 |
 | 未指定环境 | 创建 Session 时自动选择当前项目最新环境；没有可用环境才提示创建或传入环境 ID |
 | 创建成功 | 必须回读 `agent agent get <agent-id> --format json`，展示服务端最终的 Model、System、Tools、Skills、McpServers 和扩展配置 |
-| 用户期待 Agent 回复 | 短请求使用 `+new session ... --message` 或 `events send ... --wait`；大 payload / 长耗时任务使用 `events send --poll`，或 send 立即返回后按 cursor 轮询 events / 使用 `+tail`，不要让所有任务都阻塞等待 |
+| 用户期待 Agent 回复 | 短请求使用 `+new session ... --message` 或 `events send ... --stream`；大 payload / 长耗时任务使用 `events send --poll`，或 send 立即返回后按 cursor 轮询 events / 使用 `+tail`，不要让所有任务都阻塞等待 |
 
 ## 先选路径
 
@@ -45,7 +45,7 @@ metadata:
 | Session 创建时绑定 TOS 目录 | 用户明确提供地址后使用 `arkcli agent session create --tos-path tos://<bucket>/<prefix>/`；未提供时先询问，不猜路径 | [`references/session-files.md`](references/session-files.md#session-tos-资源) |
 | 选择/继续 Managed Agent 会话 | `arkcli +new session` | [`references/events-chat.md`](references/events-chat.md) |
 | 直接创建新会话并聊天 | `arkcli +new session <agent-id> --environment-id <env-id>` | [`references/events-chat.md`](references/events-chat.md) |
-| 给已有会话发消息或实时看回复 | 默认 `events send` 只负责写入；需要完整回复时加 `--wait` 自动跟随 event cursor，实时入口默认请求 `agent.message` / `agent.thinking` Event Deltas；也可使用 `+tail`/`events stream`，`--no-event-deltas` 回退完整事件；`+new session`/`+iterate` 内部自动使用补偿 channel | [`references/events-chat.md`](references/events-chat.md) |
+| 给已有会话发消息或实时看回复 | 默认 `events send` 只负责写入；需要 SSE 回复时加 `--stream` 自动跟随 event cursor（`--wait` 保留为兼容别名），实时入口默认请求 `agent.message` / `agent.thinking` Event Deltas；也可使用 `+tail`/`events stream`，`--no-event-deltas` 回退完整事件；`+new session`/`+iterate` 内部自动使用补偿 channel | [`references/events-chat.md`](references/events-chat.md) |
 | 看 session 诊断 / 导出诊断包 | `arkcli +debug <session-id>` / `arkcli +export <session-id>` | [`references/debug-export.md`](references/debug-export.md) |
 | 上传文件并挂到已有 session | `arkcli agent session resources add <session-id> --path <file>` | [`references/session-files.md`](references/session-files.md) |
 | 只上传 / 查询 Files API 文件 | `arkcli agent file upload/list/get/wait/delete` | [`references/session-files.md`](references/session-files.md) |
@@ -89,7 +89,7 @@ metadata:
 - 只对网络超时、连接中断、429 或 5xx 做有限重试；参数校验、鉴权失败、未开通、权限不足和明确业务错误直接抛出，不要重试。
 - `session create` 超时后结果可能未知。先用 `session list/get` 按返回的标题、Agent、环境和创建时间检查是否已经创建，再决定是否重试；没有幂等键时不要盲目重复创建。
 - `events send` 超时后也可能已经被服务端接收。先用返回的 event cursor、发送时间或最近的 user event 查询 `events list`；确认没有接收记录后才允许重试，避免重复发送用户消息。
-- `events send --wait` 达到 stream 等待上限后会自动切换为 events list polling，默认再等待 120 秒；两阶段都超时才返回带 cursor 恢复命令的非 0 错误。此时不要重发原消息，继续 list/poll 同一个 cursor。
+- `events send --stream` 达到 stream 等待上限后会自动切换为 events list polling，默认再等待 120 秒；`--wait` 保留相同行为作为兼容别名。两阶段都超时才返回带 cursor 恢复命令的非 0 错误。此时不要重发原消息，继续 list/poll 同一个 cursor。
 - `events list/get` 属于只读请求，可以使用有限次数、指数退避的重试；继续使用同一个 `after` cursor，不要因为重试而从历史开头重新读取。
 - 每一步都要保留步骤名、Session ID、event cursor、尝试次数和最后错误；达到重试上限后抛出带上下文的错误，不要把超时伪装成成功。
 

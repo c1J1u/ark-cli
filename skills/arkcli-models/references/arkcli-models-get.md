@@ -28,6 +28,11 @@ arkcli models get --id doubao-seed-2-0-pro-260215 --version 260215
 
 JSON 格式的模型详情，聚合自多个底层 API，包含模型名、版本、能力、定价、限流等信息。缓存能力看顶层 `cache_types`：可能包含 `explicit_cache` / `implicit_cache` / `session_cache` / `prefix_cache`；`capabilities.caching` 仅为旧版兼容字段，不用于判断全部缓存类别。
 
+`supported_params` 按当前详情的精确模型版本补充。主版本可复用本地新鲜 ArkModels 元数据缓存；缓存不可用、显式非主版本或 `--no-cache` 时，CLI 改用精确版本的 `ListModelMetaDatas` 查询。`models get` 不会为了补该字段新增 ArkModels 网络请求，避免触碰其低 QPS 限制。`--no-cache` 仍会绕过 CardView 与 ArkModels 元数据缓存。
+
+- 字段缺失或空数组：该版本当前没有可用参数目录，`--transform supported_params` 可能显示 `null`。
+- 上游字段存在但 JSON 损坏：CLI 在 stderr 输出带模型名和版本的 `warn: model supported_params enrichment failed: ...`，stdout 仍返回其余模型详情。
+
 ## 常见错误
 
 | 错误 | 原因 | 处理方式 |
