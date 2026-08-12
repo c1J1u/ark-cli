@@ -60,6 +60,7 @@ metadata:
 - 下单买套餐（含个人 / 团队）→ `plans buy`
 - 续费已有套餐 → `plans renew`
 - 看套餐支持的模型清单 → `plans model-list`
+- 切换 ark-code-latest 的路由目标（Auto 智能调度或具体影子模型）→ `plans model-apply`
 - 个人版轮换 APIKey → `plans personal rotate-apikey`
 - 列出 / 筛选企业版席位 → `plans team seat-list`
 - 把企业版席位绑给子用户 → `plans team seat-assign`
@@ -74,6 +75,7 @@ metadata:
   - "我哪个模型用得最多 / 套餐内套餐外比例" → `arkcli usage plan-details`
   - "团队席位的用量" → `arkcli usage seats --product agent-plan-team --with-usage`
 - 用户问 "Agent Plan / Coding Plan 支持什么模型"：`arkcli plans model-list --plan <plan>`
+- 用户要 "切换 ark-code-latest 底层模型 / 改成 Auto 智能调度 / 锁定某个模型"：`arkcli plans model-apply --plan <plan> --model <model-id|output-name|auto>`（**写操作**，与控制台联动；可选项先 `plans model-list` 确认）
 - 用户要 "买 / 续 套餐"：先看 [references/arkcli-plans-buy.md](references/arkcli-plans-buy.md) / [renew.md](references/arkcli-plans-renew.md)，**严格要求显式 `--plan`、`--type`、`--duration`、团队版还要 `--quantity`**，不要替用户做选择
 - 用户要 "重置 / 轮换 APIKey"：分清个人版还是企业版，参考对应 reference；**写操作，原 APIKey 立即失效**，必须按 reference 走二次确认（除非用户明确要 `--yes` 跳过）
 - 用户要 "**查席位 / 看团队 seat 绑定情况 / 谁绑了哪个 seat / 列出席位 / 哪些席位激活了 / 团队席位 admin 视图**" → `plans team seat-list --plan <agent-plan-team|coding-plan-team>`(**这是 seat 管理的默认入口**,管理视角列基础信息 + 绑定关系,**不带用量数字**;要看每个 seat 用了多少 token / 套餐百分比 → `arkcli usage seats --with-usage`)
@@ -84,7 +86,7 @@ metadata:
 
 1. 先确认认证状态：`arkcli auth status`；缺失走 `../arkcli-auth/`
 2. 读操作（`get` / `model-list` / `seat-list`）直接执行；只在用户问 "我的" 时考虑当前身份
-3. **写操作（`buy` / `renew` / `rotate-apikey` / `seat-assign`）** 务必：
+3. **写操作（`buy` / `renew` / `rotate-apikey` / `seat-assign` / `model-apply`）** 务必：
    - 先读对应 reference
    - 跟用户确认关键字段（plan / type / duration / SeatIDs / UserID 配对）
    - `rotate-apikey` 默认不传 `--yes`，让 CLI 走 [Y/N] 二次确认
@@ -97,6 +99,7 @@ metadata:
 | `plans buy` | **计费**，`IsAutoPay=true` 自动扣款 | 必须先不带 `--yes` 走协议闸门 → 把 agreements 展示给用户 → 用户明确同意后加 `--yes`。详见 [协议闸门流程](#-协议闸门plans-buy--plans-renew-强制流程) |
 | `plans renew` | **计费**，自动扣款 | 同 buy 协议闸门;团队版必传 `--seat-ids` |
 | `plans personal rotate-apikey` | **原 APIKey 立即失效** | 默认走 [Y/N] 确认；提醒用户同步替换 harness 配置 |
+| `plans model-apply` | 改变套餐请求路由指向（立即生效、与控制台联动） | 非交互必须显式 `--model`；先用 `plans model-list` 确认可选目标；团队版无席位会报错 |
 | `plans team seat-assign` | 修改席位绑定关系 | 显式 `--bind seat-id=user-id`，自动调 IAM 反查 UserName |
 | `plans team rotate-apikey` | **原 APIKey 立即失效** | self-rotate 默认 agent-plan-team；admin batch 通过 `--seat-ids` |
 
@@ -108,6 +111,7 @@ metadata:
 | [`plans buy`](references/arkcli-plans-buy.md) | 写（计费） | 下单购买套餐 |
 | [`plans renew`](references/arkcli-plans-renew.md) | 写（计费） | 续费已有套餐 |
 | [`plans model-list`](references/arkcli-plans-model-list.md) | 读 | 列套餐支持的模型 + 当前选中的 ark-latest-model |
+| [`plans model-apply`](references/arkcli-plans-model-apply.md) | 写 | 设置 ark-code-latest 路由目标（auto 或具体影子模型） |
 | [`plans personal rotate-apikey`](references/arkcli-plans-personal-rotate-apikey.md) | 写（毁坏） | 轮换 Agent Plan 个人版 APIKey |
 | [`plans team seat-list`](references/arkcli-plans-team-seat-list.md) | 读 | 列出企业版席位 + 多维度筛选 |
 | [`plans team seat-assign`](references/arkcli-plans-team-seat-assign.md) | 写 | 批量绑定企业版席位到子用户 |

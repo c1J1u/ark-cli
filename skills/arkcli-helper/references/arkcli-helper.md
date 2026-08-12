@@ -14,10 +14,10 @@ profile、scope 与文件落点并取得确认；只能用 `helper list` 做只�
 
 ## `arkcli helper mcp [target]`
 
-只把内置 MCP server 注入目标 agent 的配置文件,**不动 model / provider / base_url**。**个人版 `agent-plan` 四台**(豆包搜索 web-search + dataPro-search + openviking-dataplane + openviking-controlplane);**团队版 `agent-plan-team` 与 OpenViking 无关,只两台**(豆包搜索 + dataPro)。
+把内置 MCP server 注入目标 agent 的配置文件,**不动 model / provider / base_url**。**个人版 `agent-plan` 四台**(豆包搜索 web-search + dataPro-search + openviking-dataplane + openviking-controlplane);**团队版 `agent-plan-team` 与 OpenViking 无关,只两台**(豆包搜索 + dataPro)。豆包搜索是一个完整单元：注入 MCP、安装 `byted-web-search` Skill，并把所选 Plan 的同一把 API Key 写入该 Skill 根目录 `.env` 的 `WEB_SEARCH_API_KEY`。三者都成功后才默认关闭目标客户端的原生 `WebSearch/web_search`；传 `--keep-native-websearch` 可保留，这不属于 model/provider 改动。
 
 ```
-arkcli helper mcp [target] [--profile <plan-profile>] [--ov-resource <库名>] [--scope global|project] [--codex-config-scope profile|global] [--codex-profile <name>]
+arkcli helper mcp [target] [--profile <plan-profile>] [--ov-resource <库名>] [--scope global|project] [--keep-native-websearch] [--codex-config-scope profile|global] [--codex-profile <name>]
 ```
 
 - `target`(可选位置参数):`claude-code` | `codex` | `opencode` | `openclaw` | `trae`。
@@ -26,6 +26,7 @@ arkcli helper mcp [target] [--profile <plan-profile>] [--ov-resource <库名>] [
 - `--profile`(可选):指定用哪个 Agent Plan profile 的 key/身份。默认自动定位账号下唯一的 Agent Plan profile(`agent-plan` 或 `agent-plan-team` 都可;但**团队版不含 OpenViking**,见下)。
 - `--ov-resource`(可选):指定 openviking-dataplane 绑定的 OpenViking 库(按库名,也接受 ResourceID)。账号有多个库且未指定时命令会报错并列出可选库名。
 - `--scope`(可选,**仅 Trae**):`global`(默认)写用户级 `~/.trae/mcp.json`;`project` 写当前目录 `./.trae/mcp.json`。其它 agent 传 `--scope project` 会报错(一律用户级全局)。
+- `--keep-native-websearch`(可选):豆包搜索配置成功后保留目标 Agent 的原生 WebSearch；不传时采用推荐默认值“关闭原生 WebSearch”。该 flag 不改变 routing.v1 的 Provider allowlist。
 - `--codex-config-scope`(可选,**仅 Codex**):`profile`(默认)写 `~/.codex/<profile>.config.toml`;`global` 写 `~/.codex/config.toml`。
 - `--codex-profile`(可选,**仅 Codex profile 模式**):Codex profile 名,默认 `arkcli`。
 
@@ -53,7 +54,7 @@ dataPro / openviking-dataplane / openviking-controlplane 的 key 必须来自 Ag
 - `--profile P` 给了 → 用 P(若 P 不是 Agent Plan 类型 → 报错)。
 - 没给 → 扫所有 profile 找 Agent Plan(`agent-plan` 或 `agent-plan-team` 都行;注意**两者不等价** —— 团队版不注入 OpenViking 两台):0 个 → 引导 `auth login`;1 个 → 直接用;多个(含个人版 + 团队版并存)→ 要求 `--profile` 指定。
 
-豆包搜索(web-search / askecho)、dataPro、openviking-controlplane 三台都用该 profile 的 plan API Key(`RawDefaultAPIKey`,与 `arkcli profile show` 显示的 default key 同一把),不再单独取"搜索专属 key";plan key 取不到才写占位符。(**团队版不注入 openviking-controlplane**,实际只前两台用这把 key。)
+豆包搜索(web-search / askecho)、dataPro、openviking-controlplane 三台都用该 profile 的 plan API Key(`RawDefaultAPIKey`,与 `arkcli profile show` 显示的 default key 同一把),不再单独取"搜索专属 key"。豆包搜索的 MCP 子进程使用 `ASK_ECHO_SEARCH_INFINITY_API_KEY`；`byted-web-search` 是另一个进程，Helper 会在安装后通过标准 `skills list --json` 返回的实际路径，将同一把 Key 原子写入 Skill 根目录 `.env` 的 `WEB_SEARCH_API_KEY`，权限为 `0600`。Helper 不修改第三方 Skill 源码、不把 Key 写到全局 shell 环境，也不在输出中展示 Key。Skill 安装或凭证写入失败时，命令报错并保持原生 WebSearch 不变。(**团队版不注入 openviking-controlplane**,实际只前两台用这把 key。)
 
 ### OpenViking 库定位(openviking-dataplane;**仅个人版 agent-plan**)
 
@@ -76,6 +77,8 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 
 ```
 ✓ 已为 claude-code 注入 MCP → [mcp-server-askecho-search-infinity dataPro-search openviking-dataplane openviking-controlplane]  (plan: agent-plan_cn-beijing)
+✓ claude-code 原生 WebSearch 已关闭（项目级）→ /repo/.claude/settings.json
+快捷恢复：arkcli helper reset claude-code（同时移除 ArkCLI 写入的模型/provider/MCP 配置）
 提示:Claude Code 需重启后才会加载新注入的 MCP。
 ```
 
@@ -84,6 +87,8 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 ```
 团队版 Agent Plan 不含 OpenViking,已跳过数据面/控制面两台 MCP。
 ✓ 已为 claude-code 注入 MCP → [mcp-server-askecho-search-infinity dataPro-search]  (plan: agent-plan-team_cn-beijing_team)
+✓ claude-code 原生 WebSearch 已关闭（项目级）→ /repo/.claude/settings.json
+快捷恢复：arkcli helper reset claude-code（同时移除 ArkCLI 写入的模型/provider/MCP 配置）
 提示:Claude Code 需重启后才会加载新注入的 MCP。
 ```
 
@@ -96,6 +101,23 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 | opencode | `~/.config/opencode/opencode.json`(`mcp.*`,merge 保留其它键) | 重启 |
 | openclaw | `~/.openclaw/openclaw.json`(`mcp.servers.*` + 启用 mcporter skill) | 重启 |
 | trae | 默认 `~/.trae/mcp.json`(`mcpServers.*`,与 claude 同构);`--scope project` → `./.trae/mcp.json` | 全局:去「设置 → MCP」确认 MCP 已启用 + 重启;项目级:开「启用项目级 MCP」开关 + 重开项目 |
+
+### 原生 WebSearch 的选择与精确落点
+
+TTY 配置豆包搜索时，在 MCP 与 Skill 都成功后展示“关闭原生 WebSearch（推荐）/保留原生 WebSearch”。非交互 `helper mcp` 与 `helper configure --with-mcp|--with-routing` 默认关闭；传 `--keep-native-websearch` 时不写下表字段。
+
+| target | 关闭方式 | 范围 | reset 行为 |
+|--------|----------|------|------------|
+| claude-code | 项目根 `.claude/settings.json`：`permissions.deny` 加入 `WebSearch` | 项目级 | 只撤销 ArkCLI 加入的值 |
+| codex | 项目根 `.codex/config.toml`：`web_search = "disabled"` | 项目级；与 Codex model/MCP 的 profile/global 范围独立 | 恢复原值或删除 ArkCLI 新增字段 |
+| opencode | 项目根 `opencode.json`：`permission.websearch = "deny"` | 项目级 | 恢复原值或删除 ArkCLI 新增字段 |
+| openclaw | `~/.openclaw/openclaw.json`：`tools.web.search.enabled = false` | 用户全局 | 恢复原值或删除 ArkCLI 新增字段 |
+| trae | 项目根 `.trae/hooks.json`：`PreToolUse` 精确拒绝 `^(WebSearch\|web_search)$` | 项目级；需在 `TRAE Settings > Hooks` 启用项目 | 只移除 ArkCLI 的精确 Hook |
+| hermes | `~/.hermes/config.yaml`：`agent.disabled_toolsets` 加入 `search` | 用户全局；当前 Hermes 尚不支持 MCP，暂不会由 helper 触发 | 后续 MCP 支持接入后沿用同一可逆策略 |
+
+边界：只关闭 `WebSearch/web_search`。不得把 `webfetch`、`web_extract`、`x_search`、浏览器工具或 Hermes 的整个 `web` toolset 一起关闭。
+
+触发条件：只有豆包搜索被选择、MCP/Skill 配置成功且用户未选择保留时才写上述配置。普通 `helper configure`、Platform/Coding Plan、选择跳过豆包搜索、MCP 注入失败或传 `--keep-native-websearch` 都保持原路径不变。若关闭原生搜索失败，命令明确输出“豆包搜索已配置，但原生搜索关闭失败”，不得把部分成功包装成全部成功。
 
 ## 错误与边界 case
 
@@ -113,6 +135,8 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 | 跳过了 openviking-dataplane(个人版) | 个人版账号下 0 个 OpenViking 库 | 去 create URL 建库后重跑;或接受跳过(另三台含 openviking-controlplane 已注入)。注:**团队版本就不注入 OV**,不会出现这条 |
 | openviking-dataplane 写了占位符 | OpenViking 列库 / 取 key 失败 | 手动填 `Authorization: Bearer <真实 key>`,或重跑 |
 | 注入了但 agent 里没生效 | MCP 在 agent 启动时加载 | 重启该 agent |
+| TRAE 显示 Hook 文件已写但原生搜索仍可调用 | 项目 Hooks 尚未在 IDE 中启用 | 在 `TRAE Settings > Hooks` 启用当前项目并重开 |
+| reset 未恢复原生搜索 | 用户原本就已关闭，或配置后同一字段被外部修改 | ArkCLI 不接管原有禁用；冲突时保留用户当前值并输出警告 |
 
 ## Platform Endpoint 配置
 
@@ -124,7 +148,7 @@ arkcli helper configure codex \
   --endpoint <ep-id>
 ```
 
-- Platform 下不能传 `--model`，也不能使用 `--with-mcp` 或 `--with-supabase`。
+- Platform 下不能传 `--model`，也不能使用 `--with-mcp`、`--with-supabase` 或 `--with-routing`。
 - 没有自己创建的 Endpoint 时，交互向导会打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`，用户创建后选“刷新列表”。
 - Endpoint ID 写入 Agent 配置的 `model`；base URL 使用 `https://ark.<region>.volces.com/api/v3`。context window、max completion tokens、输入/输出模态通过 Endpoint 绑定的基础模型名，复用 Plan 当前的 ArkModels `LookupModelMeta → enrichModelMeta` 管道；查询失败时扩展字段保持未知并省略。
 - Hermes Agent 使用 `volcengine-platform` provider，把 Endpoint ID 写入 `model.default` 和 provider 模型列表，并写入上述 OpenAI-compatible base URL。Hermes 仅支持 model/provider，不支持 MCP 注入。
@@ -132,9 +156,146 @@ arkcli helper configure codex \
 
 ## 与 `arkcli helper` / `configure` 的关系
 
-- `arkcli helper`(交互):选 Platform 时走 Endpoint picker；选 Plan 时仍是一条龙选 plan→model→harness→安装→**注入 MCP**→末尾问 byted-supabase。只能在 TTY 跑。
-- `configure --with-mcp [--with-supabase]`(非交互):配 model/provider **并**注入 MCP(会(重)写 model);加 `--with-supabase` 再连带配 byted-supabase(CLI+Skill+登录态,资格不够/失败只 warn)。**这是非交互/agent 一条命令配齐全套 harness 工具的入口**。Codex 默认写 profile `arkcli`,用 `--codex-config-scope global` 才改全局配置。
-- `mcp`(非交互):**只**注入 MCP,零副作用 —— 适合"已经配好 agent、只想加豆包搜索"或 prompt 触发。**不含 Supabase**。
+- `arkcli helper`(交互):选 Platform / Coding Plan 时保持原流程；选择 Agent Plan / Agent Plan Team 时走 profile→model→AI Agent→写 model/provider→**Harness 能力选择页**→逐项真实配置。完成后 Helper 反向读取真实本地状态，动态展示已安装且凭证有效的 Provider，再由用户最终确认 routing.v1；零 Provider 时只能返回配置或不启用退出。只能在 TTY 跑。
+- `configure --with-mcp [--keep-native-websearch] [--with-supabase] [--with-routing]`(非交互):配 model/provider **并**注入 MCP(会(重)写 model);加 `--with-supabase` 再连带配 byted-supabase(CLI+Skill+登录态,资格不够/失败只 warn)；`--with-routing` 仅 Volc Agent Plan 家族可用，隐含业务 MCP，并在写 Harness 配置前做版本/能力门禁。豆包搜索成功后默认关闭原生 WebSearch，加 `--keep-native-websearch` 保留；强制路由只管理四类受管 Provider。**这是非交互/agent 一条命令配齐全套 harness 工具的入口**。Codex 默认写 profile `arkcli`,用 `--codex-config-scope global` 才改全局配置。
+- `mcp`(非交互):注入 MCP 且不改 model/provider；豆包搜索成功后默认关闭原生 WebSearch，加 `--keep-native-websearch` 保留 —— 适合"已经配好 agent、只想加豆包搜索"或 prompt 触发。**不含 Supabase**。
+
+## Agent Plan Harness 能力矩阵
+
+矩阵数据来自两个互相独立的状态面，禁止混为一谈：
+
+```text
+服务端 Agent Plan API                       本机所选 AI Agent
+  ├─ Harness 目录 + 平台支持状态              ├─ MCP 配置文件
+  ├─ 账号抵扣/超额开关                        ├─ skills CLI 全局安装快照
+  └─ 团队版当前席位开关                       ├─ byted-supabase CLI profile
+              │                              └─ Evolve CLI/Skill/workspace/credential
+              └──────── exact HarnessName join ───────────────┘
+                                      │
+                                      v
+              本次配置 | 套餐抵扣 | 超额后付费 | 配置状态
+```
+
+已知服务端名称的精确映射：
+
+| 服务端 `HarnessName` | 展示能力 | 配置适配 |
+|---|---|---|
+| `datapro` | 专业数据集 | 仅注入 `dataPro-search` MCP |
+| `SearchInfinity` | 豆包搜索 | 注入搜索 MCP + 安装 `byted-web-search` Skill |
+| `openviking` | Agent 记忆 | 注入 OpenViking control-plane；有库时同时注入 data-plane |
+| `aidap-supabase` | AI Native 应用开发底座 | 安装/复用 byted-supabase CLI+Skill，并注入所选 Plan 登录态 |
+| `Agent_evolve` | Agent 进化 | 只读检测官方 Evolve 布局；未就绪时展示官方手动安装命令 |
+
+未知 `HarnessName` 不丢弃、不重命名、不按子串猜适配器：保留服务端顺序追加到五项之后，配置状态显示“仅远端能力”。
+
+### 状态与动作
+
+- `本次配置` 是用户操作意图，不是当前状态：`[✓]` 下一步重新配置，`[ ]` 本次不处理，`[-]` 没有本地适配器或当前 Agent/Plan 不支持。已配置能力仍可勾选并强制重跑。
+- 默认勾选全部可配置能力；用户可以逐项取消。“进入配置”要求至少一项，也可显式“跳过能力配置”。逐项配置页保留套餐抵扣/超额后付费的显式确认，不因默认勾选而自动开启计费开关。
+- 豆包搜索逐项配置先写搜索 MCP，再用持续 Spinner 安装 `byted-web-search` Skill。下载过慢时，真人按 `Ctrl+C` 只取消这次 Skill 下载：保留已经写好的搜索 MCP，跳过 Skill 凭证和原生 WebSearch 选择，并继续处理本次勾选的后续 Harness 能力。不得把该按键解释成退出整个 Helper，也不得显示“豆包搜索配置完成”。
+- 主矩阵只回答开关是否开启：启用为 `●`，其余（关闭、受上级限制、平台不支持）均为 `○ 未开启`；进入详情后再区分“受上级限制 / 不支持 / 开启中”。
+- 账号超额有效态必须同时满足 `AdminEnabledOverdraft && VendorAllowStatus`。管理员开关已写入、供应方尚未开通时显示“开启中”。
+- 团队席位抵扣受账号抵扣总闸限制；席位超额受账号超额有效态限制。普通成员不能修改企业账号总闸。
+- 开启账号超额前先校验服务端返回的 `ServiceCode / Action / Version`。坐标不完整时不写账号开关；供应方调用失败时不盲回滚，刷新后显示“开启中”，避免与已成功但响应丢失的供应方请求竞态。
+- 每次开关写入都只发送所选字段，不顺带覆盖另一个开关。
+
+### 强制路由最终确认
+
+能力配置结束后才决定是否启用强制路由。最终文案按磁盘验真的 Provider 动态列名；OpenViking control-plane 单独存在不算可检索 Provider，只有 data-plane 真 key 才能显示 Agent 记忆。若集合为空，Helper 不安装 deny-all Gate，只提供“返回配置检索能力 / 不启用强制路由并退出”。用户确认后只安装真实 Provider allowlist Gate；原生 WebSearch 策略已在豆包搜索单项配置中独立决定，不属于路由闭环。
+
+### 本地配置状态
+
+- `✓ 已配置`：该能力要求的所有组件都明确就绪。
+- `⚠ 未配置`：至少一个组件明确缺失。
+- `? 未知`：探测命令失败或输出无法解析；不能把失败简化成“未配置”。
+- `— 不支持`：所选 AI Agent 没有对应交付形态。
+- 探测全程只读：不刷新凭证、不调用 Evolve 云端 status、不在渲染时自动安装。
+
+Agent 进化当前官方适配 Claude Code / OpenClaw / Trae；安装命令为：
+
+```bash
+curl -fsSL "https://ark-self-evolve.tos-cn-beijing.volces.com/evolve_skill/latest/install.sh" | bash
+```
+
+CLI 只展示该命令，不自动执行未固定版本的远程脚本。安装完成后返回矩阵选择“刷新状态”。
+
+## routing.v1 强制检索路由协议
+
+### Route Plan schema
+
+`submit_route_plan` 的参数就是 Route Plan 对象，不再包一层 `plan`：
+
+```json
+{
+  "version": "routing.v1",
+  "turn_id": "<从 enforcement context 原样复制>",
+  "tasks": [
+    {
+      "id": "public-release",
+      "intent": "latest_public_web",
+      "provider": "doubao_search",
+      "query": "ArkCLI 最新公开 release 信息"
+    }
+  ]
+}
+```
+
+约束：
+
+- `version` 必须精确为 `routing.v1`；`turn_id` 必须来自本轮 hook 上下文。
+- `tasks` 至少一个且 `id` 本轮唯一；非 `none` task 必须有非空 `query`。
+- 相同 Provider + 忽略大小写及首尾空格后相同的 query 不得重复。
+- `provider` 必须严格匹配 `intent`，不能由模型自由选择。
+
+### 混合请求
+
+用户说：“查今天的 AI 新闻，再看我的知识库里上周的评审结论，并统计本地仓库 Go 文件数。”
+
+```json
+{
+  "version": "routing.v1",
+  "turn_id": "<active-turn-id>",
+  "tasks": [
+    {"id":"news","intent":"latest_public_web","provider":"doubao_search","query":"今天的 AI 新闻"},
+    {"id":"review-notes","intent":"persistent_knowledge","provider":"openviking","query":"上周评审结论"},
+    {"id":"local-count","intent":"local_or_compute","provider":"none","query":"统计当前仓库 Go 文件数"}
+  ]
+}
+```
+
+提交成功后分别调用豆包搜索、OpenViking 和本地工具；本地工具不消耗 Provider 授权。意图不明确时提交 `clarification_required -> none` 后追问，不调用搜索工具。`doubao_search` 是 `routing.v1` 中豆包搜索唯一合法的 wire provider 值。
+
+### Provider 调用边界
+
+- 豆包搜索：已加载时优先调用 `byted-web-search` Skill。仅当 Skill 未安装、用户明确要求 MCP，或 Skill 在业务请求发出前因本地命令/配置错误失败时，保留原始错误并只改用一次 `mcp-server-askecho-search-infinity`；鉴权、超时或服务错误表示业务请求已经发出，必须停止，不能换入口重试。
+- DataPro：调用 `dataPro-search`。
+- OpenViking：检索只调用 `openviking-dataplane`；control-plane 只管理库。
+- Supabase：调用 `byted-supabase` Skill/CLI；仅 Helper 验真成功时可用。
+- OpenClaw 通过 `mcporter call <server>.<tool>` 包装 MCP 时仍受 gate 校验，不能借 shell 绕过。
+
+总领 Skill / 当前 Agent 根据 Prompt 做意图分类；路由 MCP 只提交计划，gate 只执行受管 Provider 授权。选择豆包搜索、DataPro、OpenViking、Supabase 时必须先提交计划；原生 `WebSearch`、`WebFetch`、`WebExtract` 位于 gate 之外，可直接调用且无需 Route Plan。用户明确指定某个受管 Provider 时不得在失败后静默换成原生工具；任何路径都不得读取、打印或手工传递搜索凭证。
+
+若正确 Provider 不在 `Available providers`，不要提交错误 Provider：说明缺少的能力，建议重新运行 `arkcli helper configure <harness> --with-routing`（必要时加 `--with-supabase`），然后等待用户下一轮决定。
+
+### 授权生命周期
+
+```text
+[UserPromptSubmit]
+        |
+        v
+ [new turn_id] ---> [no active authorization]
+        |
+        v
+[submit_route_plan accepted]
+        |
+        v
+[only planned providers allowed]
+        |
+        v
+[next user message] ---> [old authorization revoked]
+```
+
+计划无效、Provider 不可用或重放旧 `turn_id` 时保持拒绝状态。修正意图需要进入新的用户回合，禁止原地绕过。
 
 ## 移除
 
@@ -142,4 +303,4 @@ arkcli helper configure codex \
 arkcli helper reset <harness>
 ```
 
-移除 arkcli 注入的 provider/env/model + 内置 MCP server(保留用户其它配置)。Trae 项目级注入用 `arkcli helper reset trae --scope project` 移除。Codex profile 注入用 `arkcli helper reset codex --codex-profile <name>` 移除;全局注入用 `arkcli helper reset codex --codex-config-scope global` 移除。
+完整移除 arkcli 注入的 provider/env/model + 内置 MCP server；Volc 还会移除 arkcli 托管的路由 hook/tool/plugin，并恢复 ArkCLI 拥有且未被外部修改的原生 WebSearch 字段(保留用户其它配置)。**该命令不是“只恢复搜索”**。Trae 项目级 MCP 注入用 `arkcli helper reset trae --scope project` 移除；原生搜索 Hook 始终按当前项目根恢复。Codex profile 注入用 `arkcli helper reset codex --codex-profile <name>` 移除;全局注入用 `arkcli helper reset codex --codex-config-scope global` 移除；原生搜索配置始终位于当前项目根 `.codex/config.toml`，与该 flag 独立。

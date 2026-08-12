@@ -21,6 +21,9 @@
 3. 对每个检测到的 agent：先把当前 catalog 写入隐藏 staging，再把当前 catalog 名称和旧 manifest 名称一起备份，原子收敛 Skills 和 manifest；任一步失败都回滚
 4. 按 `skillsDir` 去重
 
+共享安装目录只计为一个目标；同时存在 Codex / Pi 这类 agent 自己的检测目录时，
+展示名称优先使用该独立信号，避免仅因 `~/.agents` 已存在而把目标误标成 Cline。
+
 当前 catalog 是安装后的权威状态：同名目录无论来源和内容都由当前版本覆盖，旧
 manifest 记录但已退出 catalog 的名称会删除。其他既不在当前 catalog、也不在旧
 manifest 的不同名目录保持不变。旧 BytePlus `arkcli-managed-agent` 因此自然退休，
@@ -52,7 +55,7 @@ arkcli +connect uninstall --path .claude/skills
 
 ## 输出示例
 
-安装：
+手动运行 `arkcli +connect`：
 ```
 Detected N agent(s): claude-code cursor gemini-cli
 Installing M skill(s)...
@@ -61,6 +64,12 @@ Installing M skill(s)...
   installed M → cursor (~/.cursor/skills)
 
 Done. Installed M skill(s) × N agent(s) = total.
+```
+
+npm postinstall 自动安装：
+```
+✓ 已将 ArkCLI Skills 安装到 N 个 AI Agent（claude-code/ codex/ opencode）。
+  如需移除 ArkCLI 安装的 Skills：arkcli +connect uninstall
 ```
 
 安装到指定目录：
@@ -97,7 +106,7 @@ Done. Removed K skill(s) total.
 1. 检查逃生阀：`ARKCLI_SKIP_POSTINSTALL=1` 或 `CI=true` 直接跳过
 2. 校验 platform/arch + binary 是否存在；不在支持名单或文件缺失（例如 `--ignore-scripts`）静默跳过
 3. 尝试打开 `/dev/tty` 双向 fd；拿不到（管道、Windows 等无 controlling tty 场景）静默跳过
-4. 直接以 `+connect` 启动平台对应的 binary，stdout/stderr 接到 tty，让安装日志落到用户终端；自动路径使用同一 authoritative catalog 事务，绝不隐式启用 `--purge-prefix`
+4. 直接以 `+connect` 启动平台对应的 binary，stdout/stderr 接到 tty；成功时只展示唯一安装目标数、对应 Agent 名称和安全卸载命令，不逐目录展开进度明细。自动路径使用同一 authoritative catalog 事务，绝不隐式启用 `--purge-prefix`
 5. 任何失败一律 `exit 0`，不阻断 npm 主链；想完全静音设 `ARKCLI_SKIP_POSTINSTALL=1`
 
 ## 常见提示与错误

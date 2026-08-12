@@ -1,7 +1,7 @@
 ---
 name: arkcli-helper
-version: 1.0.0
-description: "arkcli helper:给 Claude Code / Codex / OpenCode / OpenClaw / Hermes Agent 配置火山方舟 Plan 或 Platform Endpoint 的 model/provider，或给支持的 Agent(含 MCP-only 的 Trae)注入 MCP。Platform 仅可选择本人创建、Running、已验证为文本输出的 Endpoint 作 model，不配 MCP/Supabase；Plan 路径保持原有模型、MCP 与 Supabase 能力。用户说给当前或某个 Agent 配 MCP、豆包搜索、联网搜索、dataPro、OpenViking 时,用 `arkcli helper mcp`(只注入 MCP,不改 model);要连 model/provider 一起配用 `helper configure`;查状态用 `helper list`;移除注入用 `helper reset`。"
+version: 1.1.2
+description: "arkcli helper：为 Claude Code / Codex / OpenCode / OpenClaw / Hermes 配置火山方舟 Plan 或 Platform Endpoint 的 model/provider，或给支持的 Agent（含 MCP-only Trae）注入 MCP。真人 TTY 运行 `arkcli helper` 可选择模型和 Harness 能力；只注入豆包搜索、DataPro、OpenViking 用 `helper mcp`，连 model/provider 一起配置用 `helper configure`，查状态用 `helper list`，移除用 `helper reset`。Agent Plan / Team 还支持专业数据集、豆包搜索、Agent 记忆、AI Native 应用开发底座、Agent 进化与 routing.v1 强制检索路由；上下文出现 ARKCLI ROUTING ENFORCEMENT / routing.v1，或用户要求在豆包搜索、DataPro、OpenViking、Supabase 之间强制分流时也使用本 Skill：调用这四类受管 Provider 前先提交 Route Plan，再调用唯一授权 Provider；原生 WebSearch/WebFetch/WebExtract 位于路由管理范围之外。Platform 只允许本人创建、Running、已验证为文本输出的 Endpoint，不配置 MCP、Supabase 或强制路由。豆包搜索配置成功后默认关闭目标客户端原生 WebSearch；传 `--keep-native-websearch` 可保留，并可用 `helper reset` 完整恢复 ArkCLI 配置。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -20,9 +20,80 @@ metadata:
 
 ## 命令选择（先选最具体的子命令）
 
-- 用户要查看或配置 Agent 的 model/provider、Plan、Platform Endpoint，或核对 `--with-mcp` / `--with-supabase` 等非交互选项时，必须选择 `arkcli helper configure`；只查看用法也要运行 `arkcli helper configure --help`，不能退化成父级 `arkcli helper --help`。
-- 用户明确只注入 MCP、不改 model/provider 时，才选择 `arkcli helper mcp [target]`；只查看用法时运行 `arkcli helper mcp --help`。
+- 用户要查看或配置 Agent 的 model/provider、Plan、Platform Endpoint，或核对 `--with-mcp` / `--with-supabase` / `--with-routing` 等非交互选项时，必须选择 `arkcli helper configure`；只查看用法也要运行 `arkcli helper configure --help`，不能退化成父级 `arkcli helper --help`。
+- 用户明确只注入 MCP、不改 model/provider 时，才选择 `arkcli helper mcp [target]`；选择豆包搜索后默认关闭目标客户端的原生 `WebSearch/web_search`，用户要求保留时加 `--keep-native-websearch`。发生关闭时立即输出作用域、配置文件和完整 reset 命令。只查看用法时运行 `arkcli helper mcp --help`。
 - `arkcli-auth` 只处理实际认证阻塞。用户仅要求查看 helper 的 `--help` 时，不要转去登录、`init-volc` 或其他认证命令。
+
+## 适用场景 / 唤起信号
+
+- 用户要给本机 Claude Code / Codex / OpenCode / OpenClaw / Hermes 配置 Plan 或 Platform Endpoint 的 model/provider。
+- 用户要给支持的目标 Agent 注入豆包搜索、专业数据集或 OpenViking MCP，或配置 byted-supabase。
+- 用户询问 `arkcli helper` 的安装态、配置态、文件落点、重载方式或 Agent Plan Harness 抵扣/超额后付费矩阵。
+
+## 反唤起信号 / 不该唤起
+
+- 只查询/购买/续费套餐或管理团队席位时转 `arkcli-plans`。
+- 只搜索基础模型、查询用量或价格时分别转 `arkcli-models`、`arkcli-usage`、`arkcli-pricing`。
+- 把 arkcli 内嵌 Skills 安装到 Agent 时转 `arkcli-connect`；不要把“安装 arkcli skill”误判为配置 Harness。
+- 仅排查登录、401 或 profile 覆盖问题时转 `arkcli-auth` / `arkcli-config`，不要反复重写 Agent 配置。
+
+## TTY Harness 能力矩阵（Agent Plan / Agent Plan Team）
+
+真人直接运行 `arkcli helper` 时，向导顺序固定为：选择 Agent Plan profile → 选择模型 → 选择 AI Agent → 写入 model/provider → 进入 Harness 能力选择页。每行同时显示：
+
+1. 本次是否重新配置（`[✓]` 已选、`[ ]` 未选、`[-]` 当前不可配置）；
+2. 套餐抵扣是否开启；
+3. 超额后付费是否开启；
+4. 当前所选 AI Agent 的本地配置状态。
+
+本次选择与当前状态互相独立：默认勾选全部可配置能力；已显示“已配置”的能力进入下一步后仍必须重新执行配置。仅远端能力、当前 Agent 不支持以及团队版不提供的 Agent 记忆显示 `[-]`，不能选择。用户可取消任意能力；全部取消后选择“进入配置”会被阻止，也可以显式选择“跳过能力配置”。
+
+已知本地适配是精确映射，不按服务端名称做模糊猜测：
+
+| Harness 能力 | 本地交付形态 | “已配置”的判定 |
+|---|---|---|
+| 专业数据集 | MCP | `dataPro-search` 已注入且使用真实 Plan Key |
+| 豆包搜索 | MCP + Skill | 搜索 MCP 使用真实 Plan Key、`byted-web-search` Skill 已安装，且 Skill 根目录 `.env` 中存在可用的 `WEB_SEARCH_API_KEY` |
+| Agent 记忆 | MCP | OpenViking control-plane 已注入且使用真实 Plan Key |
+| AI Native 应用开发底座 | CLI + Skill | byted-supabase CLI、Skill、`ark_login` Agent Plan 登录态均就绪 |
+| Agent 进化 | CLI + Skill | 官方 Evolve CLI、`evolve-setup` Skill、workspace 配置与凭证均就绪 |
+
+服务端目录是远端权益状态的事实源：上面五个已知能力始终显示；当前套餐未返回映射时标明无远端权益、不开启远端切换，但仍可查看或补充本地配置。服务端新增但 arkcli 尚未适配的 Harness 显示在已知五项之后，标为“仅远端能力”，只允许查看/切换服务端权益，不提供猜测性的本地配置动作。
+
+- 个人版直接管理账号开关。
+- 团队版普通成员管理当前席位；管理员同时有席位时默认当前席位，也可选择企业账号范围。账号总闸关闭时，席位开关显示未开启并在详情中解释上级限制。
+- 开启超额后付费属于真实计费写操作：CLI 必须展示确认文案，默认选“取消”。服务端下发协议/购买链接时一并展示。不得用 `--dry-run` 代替确认。
+- Agent 进化只检测官方安装布局；当前不会自动执行未固定版本的远程 `latest/install.sh`，详情页提供官方命令让真人手动执行后刷新。
+- 豆包搜索 Skill 下载期间持续显示 Spinner；真人可按 `Ctrl+C` 立即取消当前下载并只跳过豆包搜索剩余配置。此时已注入的搜索 MCP 保留，不写 Skill 凭证、不修改原生 WebSearch，并继续配置本次已勾选的 Agent 记忆等后续能力。该按键只属于 TTY 矩阵，不改变非交互命令语义。
+- 强制路由只在能力配置完成后确认。Helper 从磁盘重新检测真实 Provider，动态列出可授权能力；零 Provider 时只能返回继续配置或不启用退出，不能安装空授权路由。
+- `helper configure/mcp/supabase/list/reset` 的非交互契约不因矩阵改变；Agent 自动化仍应选最具体的子命令，不得尝试操纵 TTY 菜单。
+
+## Agent Plan 强制检索路由（配置与运行时协议）
+
+本 Skill 负责分类与调用协议；真正的强制性来自 Helper 安装到 Harness 的 `UserPromptSubmit` / `PreToolUse` gate。它为每轮注入新的 `turn_id`，并在受管 Provider 执行前阻断错误或未授权 Provider。原生 WebSearch、WebFetch、WebExtract 不属于受管 Provider，不进入该 gate。
+
+仅 Volc `agent-plan` / `agent-plan-team` 与正式支持的 Claude Code、Codex、OpenCode、OpenClaw 可配置：
+
+```bash
+arkcli helper configure <claude-code|codex|opencode|openclaw> \
+  --profile <agent-plan-profile> \
+  --with-routing
+```
+
+`--with-routing` 隐含业务 MCP；Supabase 必须显式加 `--with-supabase`，且只有真实配置成功后才进入 Provider 集合。Hermes/Trae 缺少可验证的 hook + MCP 闭环时必须失败且保持 Harness 配置不变；Platform、Coding Plan 与非 Volc 产品不支持。
+
+上下文出现 `ARKCLI ROUTING ENFORCEMENT (routing.v1)` 时，每轮必须：
+
+1. 原样读取本轮 `turn_id` 与 `Available providers`，不得伪造或复用上一轮 ID。
+2. 把混合问题拆成可验收 task，并按固定映射选择唯一 Provider：`latest_public_web -> doubao_search`、`structured_dataset -> datapro`、`persistent_knowledge -> openviking`、`application_data -> supabase`、本地计算或需澄清 -> `none`。
+3. 在任何受管业务 Provider 前恰好调用一次 `arkcli-agentplan-search-router.submit_route_plan`，提交完整 `routing.v1` 计划；只调用原生 Web 工具时不提交计划。
+4. 计划接受后只调用已授权且真实可用的 Provider；正确 Provider 不可用时说明缺失并等待用户重新配置，不得 fallback。
+
+总领 Skill / 当前 Agent 负责理解用户意图，`arkcli-agentplan-search-router` 只接收计划并由 gate 执行授权，不是搜索服务，也不自行读取 Prompt。选择豆包搜索、DataPro、OpenViking 或 Supabase 时才进入 `routing.v1`；用户明确要求原生 WebSearch/WebFetch/WebExtract 时可直接调用，它们不消耗也不继承受管 Provider 授权。
+
+豆包搜索的同 Provider 入口顺序固定：已加载时优先调用 `byted-web-search` Skill；Skill 未安装、用户明确要求 MCP，或 Skill 在**业务请求发出前**因本地命令/配置错误失败时，保留原始错误并只改用一次 `mcp-server-askecho-search-infinity`。业务请求已经发出后出现鉴权、超时或服务错误必须停止，不得换入口重试。不得自行提取、打印或向工具手工传递 API Key。
+
+受管 Provider 之间禁止互相替代、先调用后补计划，也不得把路由 MCP 当作搜索 Provider。原生 WebSearch/WebFetch/WebExtract 位于该约束之外；但用户明确指定某个受管 Provider 时，不得在其失败后静默换成原生工具。Route Plan schema、混合请求与授权生命周期见 [`references/arkcli-helper.md`](references/arkcli-helper.md#routingv1-强制检索路由协议)。
 
 把 Agent Plan 内置 MCP server 注入本机 AI Agent 的配置 —— 这正是 `arkcli helper` 交互向导里"注入 MCP"那一步,这里做成**非交互、可被 prompt 触发**。个人版 `agent-plan` 注入四台;团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台。
 
@@ -36,7 +107,7 @@ Platform profile 只负责配置 Agent 的 model/provider：`model` 写为用户
 - Hermes Agent 支持把 Platform Endpoint 写成 `volcengine-platform` model/provider；仍不支持 MCP 注入。
 - 该接入只为 Platform 增加元数据调用方，不修改 Plan 模型清单、默认模型、元数据查询、MCP 或 Supabase 行为。
 - 没有自己创建的 Endpoint 时，向导打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`；创建完成后选择“刷新列表”。已有但未运行的 Endpoint 需先启动再刷新。
-- Platform **不支持** MCP、OpenViking 或 Supabase；`--with-mcp`、`--with-supabase` 会报错。
+- Platform **不支持** MCP、OpenViking、Supabase 或强制路由；`--with-mcp`、`--with-supabase`、`--with-routing` 会报错。
 
 非交互调用：
 
@@ -59,6 +130,16 @@ arkcli helper configure codex \
 
 > **个人版 vs 团队版:** 上表 OpenViking 两台是**个人版 `agent-plan`** 专属。**团队版 `agent-plan-team` 与 OpenViking 无关** —— 只注入豆包搜索 + dataPro 两台,`openviking-dataplane` / `openviking-controlplane` 都不配,也不会去查 vikingdb。
 
+## 豆包搜索成功后的原生 WebSearch 选择
+
+仅当豆包搜索 MCP 被选择、`byted-web-search` Skill 安装成功，且所选 Agent Plan 的同一把 API Key 已写入 Skill 根目录 `.env` 的 `WEB_SEARCH_API_KEY` 后，`helper` 才处理目标客户端的原生 `WebSearch/web_search`。TTY 会让用户选择“关闭（推荐）/保留”；非交互命令默认关闭，传 `--keep-native-websearch` 时保留。普通 model/provider 配置、Platform、Coding Plan、显式跳过豆包搜索、MCP 注入失败、Skill 安装失败或 Skill 凭证写入失败都不触发。Helper 不修改第三方 Skill 源码，也不得打印该 Key。
+
+- 范围严格限定为 `WebSearch/web_search`；**不会**关闭 `webfetch`、`web_extract`、`x_search`、浏览器或其它工具。
+- 项目级配置从当前目录向上寻找 `.git`（worktree 的 `.git` 文件也支持）；找不到时使用当前目录。
+- 配置成功后命令立即输出：客户端、作用域、配置路径，以及 `arkcli helper reset <harness>`。该 reset 是**完整回滚**，会同时移除 ArkCLI 写入的 model/provider/MCP，不是“只恢复搜索”。
+- ArkCLI 只恢复自己拥有且未被用户再次修改的字段。用户原本已经关闭搜索时不接管；配置后同一字段被外部修改时，reset 保留用户当前值并警告。
+- TRAE 写入 `.trae/hooks.json` 后，还必须在 `TRAE Settings > Hooks` 中启用当前项目；命令会明确提示“待激活”，不得宣称仅写文件就已生效。
+
 ## host ≠ target(最关键的概念)
 
 - **host** = 你(这个 AI Agent)此刻跑在哪 —— 命令读环境变量自动检测,无需你判断。
@@ -72,16 +153,18 @@ arkcli helper configure codex \
 
 | 调用 | 说明 |
 |------|------|
-| `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project] [--codex-config-scope profile|global] [--codex-profile <name>]` | **只注入 MCP,不改 model**。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json`;Codex 默认写 profile `~/.codex/arkcli.config.toml` |
-| `arkcli helper configure <harness> [--profile P] [--model M\|--endpoint ep-id] [--with-mcp] [--with-supabase] [--codex-config-scope profile\|global] [--codex-profile <name>]` | Plan 用 model/provider；Platform 必须用 `--endpoint` 选择文本 Endpoint。仅 Plan 可加 MCP/Supabase。 |
+| `arkcli helper mcp [target] [--ov-resource <库名>] [--scope project] [--keep-native-websearch] [--codex-config-scope profile\|global] [--codex-profile <name>]` | 配置 MCP、**不改 model**；豆包搜索会同时安装 `byted-web-search`，并把同一把 Plan Key 安全写入其 Skill 根目录 `.env`。完整就绪后默认关闭目标客户端原生 WebSearch，加 `--keep-native-websearch` 保留。不传 target 自动检测当前 agent;账号多个 OpenViking 库时用 `--ov-resource` 指定;`--scope project`(仅 Trae)写项目级 `./.trae/mcp.json`;Codex 默认写 profile `~/.codex/arkcli.config.toml` |
+| `arkcli helper configure <harness> [--profile P] [--model M\|--endpoint ep-id] [--with-mcp] [--keep-native-websearch] [--with-supabase] [--with-routing] [--codex-config-scope profile\|global] [--codex-profile <name>]` | Plan 用 model/provider；Platform 必须用 `--endpoint` 选择文本 Endpoint。仅 Plan 可加 MCP/Supabase；强制路由仅 Agent Plan 可用。`--keep-native-websearch` 只影响豆包搜索配置，不改变路由 gate。 |
 | `arkcli helper list` | 查支持的 agent + 安装/配置状态(只读) |
 | `arkcli helper supabase [--profile P]` | **非 MCP**:装 byted-supabase-cli + skill + 注入火山登录态(打通 byted-supabase 数据库能力);跟 harness 无关。仅 Agent Plan(个人版全档 + 团队版全档) |
-| `arkcli helper reset <harness>` | 移除 arkcli 注入的配置(含 MCP) |
-| `arkcli helper` | TTY 交互向导(需终端;非交互场景改用上面的);进入向导前会检查登录态,未登录/SSO 过期时按当前登录上下文拉起 SSO(火山走 volc-sso;全新用户无明确上下文时走 auth login 菜单),成功后继续向导;末尾会问是否顺便配 byted-supabase |
+| `arkcli helper reset <harness>` | 完整移除 arkcli 注入的 model/provider/MCP/托管路由 hook/tool/plugin，并恢复 ArkCLI 拥有且未被外部修改的原生搜索字段 |
+| `arkcli helper` | TTY 交互向导(需终端;非交互场景改用上面的);进入向导前会检查登录态,未登录/SSO 过期时按当前登录上下文拉起 SSO(火山走 volc-sso;全新用户无明确上下文时走 auth login 菜单),成功后继续向导；Agent Plan/Team 按 profile→model→Agent→能力多选→逐项配置推进，随后只基于已验真的真实 Provider 动态确认强制路由 |
 
 > ⚠️ 想"只加 MCP" → `helper mcp`;想"把 agent 接到 plan、连模型一起" → `helper configure --with-mcp`。别用 `configure` 去只加 MCP(它会一并(重)写 model)。
 >
 > 🎯 用户说"**把(我 plan 的)全套 harness 工具都配上 / 都给我 set 好**"(MCP + Supabase 一次到位)→ `arkcli helper configure <harness> --with-mcp --with-supabase`。这是 agent 唯一能一条命令配齐 MCP 三件套 + Supabase 的路径(交互向导 `arkcli helper` 要 TTY、agent 跑不了;它的自动 SSO 只服务真人终端);`--with-mcp` 只配 MCP、不含 Supabase,想带 Supabase **必须显式加 `--with-supabase`**(资格不够 / 失败只 warn,不阻断 harness 配置)。
+>
+> 🧭 用户明确要“强制受管 Provider 路由 / routing.v1 / 防止豆包搜索、DataPro、OpenViking、Supabase 串路由”→ 使用本 Skill 的“Agent Plan 强制检索路由”协议，并执行 `helper configure <harness> --with-routing`。该 flag 隐含业务 MCP；Supabase 仍需显式加 `--with-supabase`，原生 Web 工具不受此 flag 管理。
 
 ## byted-supabase 数据库能力(`helper supabase`;**非 MCP**)
 
@@ -99,13 +182,15 @@ arkcli helper configure codex \
 - **可注入 target 有 5 个**:`claude-code` / `codex` / `opencode` / `openclaw` / `trae`。
 - 本 skill 会被 `arkcli +connect` 装进很多 agent(cursor / gemini-cli / codex …40+),但 **MCP 注入只支持上一条列出的 5 个 target**。host 是其它 agent 时:要么用户点名其一作 target,要么命令会报"请显式指定" —— **绝不静默配错对象**。
 - `codex` 支持 model/provider + MCP。默认 **profile 模式**写 `~/.codex/arkcli.config.toml`,需用 `codex --profile arkcli` 启动 terminal/TUI 才生效;传 `--codex-config-scope global` 才写 `~/.codex/config.toml`,该范围可能被 Codex CLI/TUI、Codex App、IDE extension 共享读取。
-- `trae`(AI IDE)是 MCP-only:只注入 MCP、不配 model/provider;**无运行态宿主检测**(不会被自动当成 host),只能显式 `arkcli helper mcp trae`。默认写用户级 `~/.trae/mcp.json`,加 `--scope project` 写项目级 `./.trae/mcp.json`(项目级需在 Trae「设置 → MCP」开启「启用项目级 MCP」开关 + 重开项目)。
+- `trae`(AI IDE)是 MCP-only:不配 model/provider;**无运行态宿主检测**(不会被自动当成 host),只能显式 `arkcli helper mcp trae`。默认写用户级 `~/.trae/mcp.json`,加 `--scope project` 写项目级 `./.trae/mcp.json`(项目级需在 Trae「设置 → MCP」开启「启用项目级 MCP」开关 + 重开项目)。豆包搜索成功后另写项目根 `.trae/hooks.json`，还需在 `TRAE Settings > Hooks` 启用当前项目。
 - `hermes` 支持 Plan / Platform Endpoint 的 model/provider 配置，但暂不支持 MCP 注入 → MCP 请求命中就直说"暂不支持"。
+- 强制路由正式支持 `claude-code` / `codex` / `opencode` / `openclaw`；Hermes/TRAE 走能力门禁，缺 hook + MCP 闭环时零 Harness 配置写入并报错，不做提示词降级。
+- Plan 的 model 可以配成路由模型 `ark-code-latest`(交互向导会先问「智能路由 (ark-code-latest) vs 指定具体模型」;非交互直接 `--model ark-code-latest`)。**切换 ark-code-latest 的路由目标(Auto 智能调度 / 锁定某个底层模型)不在本 skill** —— 走 `arkcli plans model-apply --plan <plan> --model <目标>`(见 [`../arkcli-plans/`](../arkcli-plans/SKILL.md)),写控制面、与控制台联动。
 
 ## 前提
 
 - **必须有 Agent Plan 订阅**(豆包搜索 / dataPro 要 Agent Plan 的 key;OpenViking 两台是个人版专属)。命令自动定位账号下的 Agent Plan profile,**与当前 active profile 无关**;个人版 `agent-plan` 与团队版 `agent-plan-team` 都能注入,但**两者不等价**:个人版注入四台,**团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台**。没有就引导 `arkcli auth login` 开通;账号同时有多个 Agent Plan profile(如个人版 + 团队版)时让用户用 `--profile` 指定。
-- 注入后 **agent 需重启**才会加载新 MCP。Codex profile 模式还需用 `codex --profile <name>` 启动;Trae 还需去「设置 → MCP」面板确认 MCP 已启用(项目级文件额外要开「启用项目级 MCP」开关)后重开项目。
+- 注入后 **agent 需重启**才会加载新 MCP。Codex profile 模式还需用 `codex --profile <name>` 启动;Trae 还需去「设置 → MCP」面板确认 MCP 已启用(项目级文件额外要开「启用项目级 MCP」开关)，并在 `Settings > Hooks` 启用当前项目后重开项目。
 
 ## OpenViking 库的选择(openviking-dataplane 专属;**仅个人版 agent-plan**)
 
@@ -123,10 +208,18 @@ arkcli helper configure codex \
 
 - "给 Agent 配 MCP / 豆包搜索 / 联网搜索 / dataPro / web search" → `arkcli helper mcp`
 - "把 agent 指向我的 plan(连模型一起)" → `arkcli helper configure`
+- "打开 helper 看 Harness 抵扣/超额开关和本地配置矩阵" → 真人 TTY 运行 `arkcli helper`；Agent 不自动驾驶该菜单
 - "把全套 harness 工具都配上 / 一次配齐 MCP + Supabase" → `arkcli helper configure <h> --with-mcp --with-supabase`
+- "启用强制受管 Provider 路由 / routing.v1 / 防止豆包搜索、DataPro、OpenViking、Supabase 串路由" → 使用本 Skill 的强制检索路由协议，执行 `arkcli helper configure <h> --with-routing`
 - "配 byted-supabase / 打通数据库 / 装 supabase cli / 连接 supabase" → `arkcli helper supabase`(非 MCP,装 CLI+skill+注入登录态);或在配 harness 时顺带 `configure --with-supabase`
 - 把 arkcli skills **安装**进 agent → 走 [arkcli-connect](../arkcli-connect/SKILL.md),与本 skill 无关
 - 401 / 登录 / 鉴权失败 → 走 [arkcli-auth](../arkcli-auth/SKILL.md)
 - 生图 / 生视频 → 走 [arkcli-gen](../arkcli-gen/SKILL.md)
 
 详细 flag、输出样例、错误码、边界 case 见 [`references/arkcli-helper.md`](references/arkcli-helper.md)。
+
+## References / 详细参考
+
+- [`references/arkcli-helper.md`](references/arkcli-helper.md)：完整 flag、MCP/Skill/CLI 落点、Harness 矩阵状态机与错误处理。
+- [`references/evals.md`](references/evals.md)：Trigger、反触发、写操作守卫和回归用例。
+- [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)：所有 arkcli Skill 共用的认证、输出与安全约束。
