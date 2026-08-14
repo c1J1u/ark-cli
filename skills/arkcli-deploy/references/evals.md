@@ -84,7 +84,9 @@
 - **不要**推荐 `arkcli +deploy --model doubao-seed-tts-2-0`
 - **不要**引导用户先 `auth apikey`、补版本号或改走 `infer endpoint create`
 
-## 8) 配套机器评测
+
+
+## 10) 配套机器评测
 
 机器评测资产位于 `tests/skills/arkcli-deploy/`，复跑：
 

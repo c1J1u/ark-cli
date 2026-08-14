@@ -56,6 +56,8 @@ arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
 | `--moderation` | JSON string | 审核配置。Strategy: `Basic` / `Customized` / `Default` / `Skip` |
 | `--view` | string | 创建后查看 Endpoint 详情 |
 
+
+
 ### 高级配置
 
 | 参数 | 类型 | 说明 |
@@ -94,6 +96,8 @@ arkcli +deploy --name my-custom-endpoint --model cm-xxxxx
 | 缺少必填参数 | 未提供 `--name` 或 `--model` | 必须指定 |
 | JSON 格式错误 | `--rate-limit` 等 JSON 参数格式不对 | 单引号包裹，字段用 PascalCase |
 | 模型不存在 | `--model` ID 无效 | `arkcli models search <keyword>` 找正确名字 |
+
+
 
 ## 参考
 
