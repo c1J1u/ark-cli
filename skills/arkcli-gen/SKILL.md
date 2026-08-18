@@ -172,6 +172,10 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 | "生成完直接打开/帮我打开看看/出来就弹给我" | `arkcli +gen --open`（强制用系统默认程序打开；默认在交互终端已自动打开） |
 | "别自动打开/不要弹窗/我在脚本里跑别开" | `arkcli +gen --no-open`（强制不打开） |
 | "预览/别真发/只看参数/dry run/试跑/先看一下" | `arkcli +gen ... --dry-run --format json`；核对 `steps`、`unresolved` 和 `fidelity`，不要把 partial 预览当作服务端校验 |
+| "不要下载/只要 URL/不要保存到本地/关闭自动下载" | 命令显式加 `--save-to=""`；即使同时是 `--dry-run` 也要保留，以便预览能核对真实执行时的关闭下载意图 |
+| "草稿/快速预览/越快越便宜/省钱先看" | 视频命令显式加 `--draft`（草稿模式：更快、更便宜、质量更低）；不能只缩短 duration 代替草稿语义 |
+| "固定镜头/镜头不动/锁定相机/只拍光影变化" | 视频命令显式加 `--camera-fixed`；不能只把固定镜头要求写进 prompt |
+| "不带水印/不要水印/关闭水印" | 省略 `--watermark`（默认 false）；禁止使用裸 `--watermark`，它表示开启水印 |
 | "强制执行/跳过校验/我知道不支持但想试一下" | `arkcli +gen --force` |
 | "连贯多张/按顺序/统一风格/4格漫画/连续图片" | `arkcli +gen --sequential` |
 | "我之前的任务/生成历史/任务列表/任务状态" | `arkcli gen list`（列出所有异步生成任务） |

@@ -62,7 +62,7 @@ arkcli doctor model <model-name> --format json
 | `model.exists`          | 模型存在 + **modality 识别**          | modality 决定后面看哪些专属指标——必读，没有这个其它都是无用功     |
 | `model.source`          | 平台基础模型 / 自传 / 精调            | 自传或精调（`cm-xxx`）走的代码路径与基础模型略有不同，问题排查时区分 |
 
-> 不存在 → fail。让用户核对模型名（`arkcli models list` / `arkcli custommodel list`）或换 profile region。
+> 不存在 → fail。让用户核对模型名（`arkcli models list` / `arkcli models custommodel list`）或换 profile region。
 
 ### ② 接入点分布
 

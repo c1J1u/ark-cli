@@ -114,7 +114,7 @@ arkcli doctor +verify-origin <url> [url...]     # 1-20 个媒体来源特征验�
 > - 只有用户**只给错误码 / 错误 JSON**、没给资源 ID 时（Path 2），才直接查表。
 
 > [!NOTE]
-> **不要为 `doctor model` / `doctor infer-endpoint` 做兜底前置调用**：这两条命令内部已经先跑 `model.exists` / `endpoint.exists`，覆盖了"模型/接入点是否存在"。**不要**在调用前先跑 `arkcli models list` / `arkcli infer list` / `arkcli auth status` 等做存在性 / 身份兜底——doctor 命令失败时会自己报清楚原因（404 / VMP precheck / 鉴权），按它的输出处理即可，多余兜底徒增 token 消耗。
+> **不要为 `doctor model` / `doctor infer-endpoint` 做兜底前置调用**：这两条命令内部已经先跑 `model.exists` / `endpoint.exists`，覆盖了"模型/接入点是否存在"。**不要**在调用前先跑 `arkcli models list` / `arkcli infer endpoint list` / `arkcli auth status` 等做存在性 / 身份兜底——doctor 命令失败时会自己报清楚原因（404 / VMP precheck / 鉴权），按它的输出处理即可，多余兜底徒增 token 消耗。
 
 ## 路由到 scope reference
 

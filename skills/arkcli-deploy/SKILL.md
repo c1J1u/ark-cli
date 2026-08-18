@@ -1,6 +1,6 @@
 ---
 name: arkcli-deploy
-version: 1.4.2
+version: 1.4.4
 description: "arkcli +deploy：创建推理接入点（Endpoint）的统一首选入口 —— **用户说『创建/新建/create 一个 endpoint/接入点』或『部署/上线/deploy 某模型』，只要意图是新建一个接入点，一律优先走这里，不要走 arkcli-infer-endpoint 的 create**。当用户需要把模型部署成在线推理接入点时使用。注意：要对**已有** Endpoint 做获取/列表/启停/更新等全生命周期管理，才走 arkcli-infer-endpoint；本 skill 只负责一键创建（创建外的增删改查不在此）。创建成功后会自动把多语言调用示例渲染到 ./ark-examples/<ep-id>/。反触发：TTS/ASR/语音模型不能 +deploy，只能转 models search 说明广场可搜但 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
@@ -51,7 +51,7 @@ metadata:
 
 ## 路由判断
 
-- 用户已有模型 ID + 想正式部署 → 复述 `model/name/region` 并确认后执行 `arkcli +deploy --name <ep> --model <id>`
+- 用户已有模型 ID + 想正式部署 → 复述 `model/name/region`；确认后执行 `arkcli +deploy --name <ep> --model <id>`
 - 用户要部署 / 接入语音模型，或模型名看起来是 `*-tts-*` / `*-asr-*` / `seedasr-*` → 转 [`arkcli-models`](../arkcli-models/SKILL.md) 说明"只支持广场检索，不支持 Endpoint 创建"
 - 用户传入自定义模型 ID（`cm-xxxxx`）时，真实创建前会先查是否已有引用该自定义模型且状态为 `Running` 的 Endpoint；若有则直接复用并输出已有 `endpoint-id`，不会再创建第二个计费资源。该在线复用决策也是 `+deploy` 无法提供可靠离线 Client Preview 的原因之一
 - 用户语气紧急要求"立刻创建" → **不要跳过确认**，复述 `model/name/region`
