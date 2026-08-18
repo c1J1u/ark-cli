@@ -64,3 +64,17 @@ HOME="$tmp_home" arkcli profile use default --format json
 HOME="$tmp_home" arkcli profile delete default --format json
 HOME="$tmp_home" arkcli config reset --format json  # 整库清理仍走 config reset
 ```
+
+## 5) 更新策略
+
+输入（用户说法）：
+
+- “以后自动更新 arkcli”
+- “关闭 arkcli 的自动更新和版本提示”
+
+期望行为：
+
+- 明确这是持久化配置写操作，分别执行 `arkcli config set update.mode automatic` 或 `arkcli config set update.mode disabled`。
+- 关闭静默自动安装但保留提示时使用 `arkcli config set update.mode notify`。
+- 不把 `disabled` 解释成禁用显式 `arkcli update` / `arkcli update --check`。
+- 不用通用 YAML 编辑或定时任务替代产品命令。

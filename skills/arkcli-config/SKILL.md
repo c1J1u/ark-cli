@@ -1,7 +1,7 @@
 ---
 name: arkcli-config
 version: 1.1.0
-description: "arkcli 本地配置管理。0.1.16 起 profile 类操作请优先使用 `arkcli profile <subcmd>`（init/list/show/switch/delete 已 deprecated）；本 skill 仍可处理 `arkcli config reset` 与历史 yaml 排障。"
+description: "arkcli 本地配置管理。处理 profile 配置归因、update.mode 的 notify/automatic/disabled 策略、config reset 与历史 yaml 排障；profile 类操作优先使用 `arkcli profile <subcmd>`。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -20,6 +20,7 @@ metadata:
 - 用户提到：`profile`、`base-url`、`api-key` 覆盖混乱，或仍在使用已删除的全局 `--region/--project-name`
 - 用户现象：同一条业务命令“打到了错误环境/错误 base URL/错误账号”，怀疑是配置来源不一致
 - 用户目标：初始化/更新 profile、切换默认 profile、重置本地配置文件
+- 用户目标：启用、关闭或恢复 arkcli 的自动更新/更新提示策略
 
 ## 反唤起信号（When NOT To Trigger）
 
@@ -41,6 +42,7 @@ metadata:
 3. 切换默认 profile：`arkcli profile use <name>`
 4. 创建 profile：`arkcli profile create --type=...`（详见 arkcli-profile 子树，本 skill 不重复）
 5. `arkcli config reset` 是破坏性操作（清整个本地配置文件），必须确认用户意图
+6. 更新策略只使用 allowlist 命令：`arkcli config set update.mode notify|automatic|disabled`
 
 ## 配置归因（优先级）
 
@@ -72,7 +74,7 @@ metadata:
 - 本 skill 负责解释“为什么命令打到了错误环境/错误账号/错误 base URL”，并兼容历史 `config init/list/show/switch/delete` 命令排障语义
 - 配置排障优先 `arkcli profile show`，不要一上来就改配置
 - profile 写操作（create / use / set-default / delete）走 `arkcli profile` 子树
-- `arkcli config reset` 是唯一保留的 config 写操作（整个本地配置文件清空，超出单 profile 范围）
+- `arkcli config reset` 负责全量清理；`arkcli config set update.mode <mode>` 只写更新策略。不要用它写任意 YAML 路径。
 
 ## Guard Checklist（必做）
 
@@ -92,12 +94,17 @@ metadata:
 | 命令 | 说明 | 状态 |
 |------|------|------|
 | `arkcli config reset` | 删除整个本地配置文件（保留） | ✅ 活跃 |
+| `arkcli config set update.mode notify` | 关闭静默自动安装，保留隐式检查与提示 | ✅ 活跃 |
+| `arkcli config set update.mode automatic` | 普通 npm 首次安装默认；当前仅 Windows 满足事务门禁后自动应用 | ✅ 活跃 |
+| `arkcli config set update.mode disabled` | 关闭隐式检查、提示与自动更新；不禁用手工 update | ✅ 活跃 |
 | `arkcli profile show [--profile <name>]` | 查看解析后配置或指定 profile | ✅ 替代 `config show` |
 | `arkcli profile list` | 列出所有 profile（含 type/region/project 切面） | ✅ 替代 `config list` |
 | `arkcli profile use <name>` | 切换默认 profile | ✅ 替代 `config switch` |
 | `arkcli profile delete <name>` | 删除单个 profile | ✅ 替代 `config delete` |
 | `arkcli profile create --type=...` | 创建 profile（替代旧 `config init`） | ✅ 替代 `config init` |
 | `arkcli config init/list/show/switch/delete` | 旧子命令，0.2.x 移除 | ⚠️ deprecated |
+
+普通 npm postinstall 仅在 `update.mode` 尚未设置时初始化 `automatic`，并提示可用 `arkcli config set update.mode notify` 关闭静默安装；升级不得覆盖既有 `notify/disabled`。npm 禁止 postinstall 时，仅稳定且 npm-owned 的首条成功交互式普通命令在结束后初始化并提示，本次不升级；其它跳过场景保持安全 `notify` fallback。
 
 ## 参考
 

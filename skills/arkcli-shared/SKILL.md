@@ -1,6 +1,6 @@
 ---
 name: arkcli-shared
-version: 2.0.2
+version: 2.0.4
 description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
@@ -32,12 +32,14 @@ metadata:
 - 首次远端调用前，先看 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 - `arkcli` 是产品 CLI，不是 OpenAPI Action 浏览器；不要从 Action 名反推命令设计
 - 安装: `npm i @volcengine/ark-cli -g`（公开版）
+- 版本检查、更新提示与显式升级走 [`arkcli-update`](../arkcli-update/SKILL.md)；不要把“有新版”当成自动升级授权
 
 ## 调用归因协议
 
-当 AI Agent 通过任意 `arkcli-*` 业务 skill 执行 `arkcli` 命令时，必须用单命令环境变量前缀标记调用来源和 owning skill。人类直接在终端调用 `arkcli` 时不要手动补这些变量。
+当 AI Agent 通过任意 `arkcli-*` 业务 skill 执行 `arkcli` 命令时，必须使用下面的单命令环境变量前缀。它既标记调用来源和 owning skill，也冻结本次 Skill workflow 的 CLI 版本：不做隐式 registry 更新检查、不打印更新提示、不在任一子命令结束后调度 automatic apply。人类直接在终端调用 `arkcli` 时不要手动补这些变量。
 
 ```bash
+ARKCLI_NO_UPDATE_NOTIFIER=1 \
 ARKCLI_CALLER_TYPE=ai_agent \
 ARKCLI_CALLER_NAME=<agent-id> \
 ARKCLI_SKILL_NAME=<current-arkcli-skill> \
@@ -49,6 +51,8 @@ arkcli <command> ...
 - `ARKCLI_CALLER_NAME` 使用稳定 Agent ID，例如 `codex` / `claude-code` / `opencode` / `openclaw` / `trae` / `cursor`；无法可靠判断时用 `unknown_agent`
 - `ARKCLI_SKILL_NAME` 填当前业务 skill 名，例如 `arkcli-gen` / `arkcli-chat` / `arkcli-models` / `arkcli-deploy`
 - 不要把 `arkcli-shared` 填进 `ARKCLI_SKILL_NAME`；本文件只是共享入口，业务归因必须落到实际 owning skill
+- `ARKCLI_NO_UPDATE_NOTIFIER=1` 的兼容变量名虽然只写了 notifier，但契约覆盖全部**隐式**更新活动：缓存读取/刷新、提示和 automatic 调度；它不阻止用户明确要求的 `arkcli update` / `arkcli update --check`
+- Skill 内每一条 `arkcli` 子命令都必须带完整前缀，不能只给第一条加；这样多命令 workflow 从开始到结束都使用同一已安装版本
 - 只给当前命令加前缀，不要 `export` 到整个 shell 会话，避免串到后续无关命令
 
 ## 统一 CLI 与 Profile

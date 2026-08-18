@@ -20,6 +20,11 @@ arkcli profile delete default --format json
 
 # 重置整个本地配置文件（保留，超出单 profile 范围）
 arkcli config reset --format json
+
+# 更新策略（只允许 update.mode）
+arkcli config set update.mode notify
+arkcli config set update.mode automatic
+arkcli config set update.mode disabled
 ```
 
 ## 旧命令兼容映射
@@ -33,4 +38,4 @@ arkcli config reset --format json
 | `arkcli config init ...` | `arkcli profile create --type=...`（行为更明确：必须指定 type） |
 | `arkcli config reset` | 仍可用（清整个本地配置文件，无替代） |
 
-> **为什么迁移**：profile 现在承载 `type / region / project / owner_trn / available_api_keys` 五个切面，命令路径 `arkcli profile <verb>` 比 `arkcli config <verb>` 更精确（config 还包括 reset / 全局排障）。
+> **为什么迁移**：profile 现在承载 `type / region / project / owner_trn / available_api_keys` 五个切面，命令路径 `arkcli profile <verb>` 比 `arkcli config <verb>` 更精确（config 还包括 reset、`update.mode` 和全局排障）。
