@@ -43,11 +43,11 @@ CLI 返回“已安排后台升级”和日志路径。
 
 用户说：“以后在安全条件满足时自动更新 arkcli。”
 
-- 说明普通 npm 首次安装会在尚未配置时初始化 `automatic`；该命令是幂等地确认持久化策略，不得覆盖用户未授权的其它配置。
-- 若 npm 禁止 postinstall，说明首条成功的稳定 npm-owned 交互命令只负责初始化和提示，本次不会升级。
+- 说明默认策略是 `notify`，postinstall、首次运行和环境变量都不会推断 automatic 授权。
 - 执行 `arkcli config set update.mode automatic`。
-- 说明当前只有 Windows 已开放 automatic apply；macOS/Linux 会安全漏更新，仍可显式运行 `arkcli update`。
-- 说明只在普通交互命令成功、official stable npm 同 prefix 等条件满足时，于业务进程退出后更新；CI、非 TTY、直接 binary 和 candidate/integration 不自动更新。
+- 当前六个生产 gate 全部关闭，预期命令返回 automatic unavailable；确认配置和 consent 未被写入，不得声称已开启。
+- 说明 Windows、macOS、Linux 的 fail-closed transaction 已实现，但必须先用真实 foundation stable 完成下一 patch 的跨版本验收，再按产品/平台独立开 gate。
+- 说明 gate 开启后仍只允许显式 opt-in，并要求普通交互命令成功、official stable exact tuple、双时钟/灰度、SRI、consent 和平台原子事务全部满足；CI、非 TTY、AI Skill workflow、直接 binary 和 candidate/integration 不自动更新。
 - 不创建定时任务。
 
 ## 7. 用户关闭自动更新

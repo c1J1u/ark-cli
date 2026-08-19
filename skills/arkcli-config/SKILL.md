@@ -1,6 +1,6 @@
 ---
 name: arkcli-config
-version: 1.1.0
+version: 1.1.1
 description: "arkcli 本地配置管理。处理 profile 配置归因、update.mode 的 notify/automatic/disabled 策略、config reset 与历史 yaml 排障；profile 类操作优先使用 `arkcli profile <subcmd>`。"
 metadata:
   requires:
@@ -95,7 +95,7 @@ metadata:
 |------|------|------|
 | `arkcli config reset` | 删除整个本地配置文件（保留） | ✅ 活跃 |
 | `arkcli config set update.mode notify` | 关闭静默自动安装，保留隐式检查与提示 | ✅ 活跃 |
-| `arkcli config set update.mode automatic` | 普通 npm 首次安装默认；当前仅 Windows 满足事务门禁后自动应用 | ✅ 活跃 |
+| `arkcli config set update.mode automatic` | 未来 gate 开启后显式授权当前 exact install；当前六个生产 gate 全关闭，命令会返回 unavailable 且不写配置 | ⛔ 当前不可用 |
 | `arkcli config set update.mode disabled` | 关闭隐式检查、提示与自动更新；不禁用手工 update | ✅ 活跃 |
 | `arkcli profile show [--profile <name>]` | 查看解析后配置或指定 profile | ✅ 替代 `config show` |
 | `arkcli profile list` | 列出所有 profile（含 type/region/project 切面） | ✅ 替代 `config list` |
@@ -104,7 +104,7 @@ metadata:
 | `arkcli profile create --type=...` | 创建 profile（替代旧 `config init`） | ✅ 替代 `config init` |
 | `arkcli config init/list/show/switch/delete` | 旧子命令，0.2.x 移除 | ⚠️ deprecated |
 
-普通 npm postinstall 仅在 `update.mode` 尚未设置时初始化 `automatic`，并提示可用 `arkcli config set update.mode notify` 关闭静默安装；升级不得覆盖既有 `notify/disabled`。npm 禁止 postinstall 时，仅稳定且 npm-owned 的首条成功交互式普通命令在结束后初始化并提示，本次不升级；其它跳过场景保持安全 `notify` fallback。
+普通 npm postinstall、首次运行和环境变量都不得推断 automatic 授权；缺失 `update.mode` 的兼容默认值始终是 `notify`。Windows、macOS、Linux 的 fail-closed transaction 均已实现，但六个产品/平台生产 gate 当前全部为 `false`，所以 `automatic` 命令会在任何配置或 consent 写入前明确拒绝。显式 `arkcli update` 和 `arkcli update --check` 不受 gate 影响。
 
 ## 参考
 

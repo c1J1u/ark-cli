@@ -75,6 +75,8 @@ HOME="$tmp_home" arkcli config reset --format json  # 整库清理仍走 config 
 期望行为：
 
 - 明确这是持久化配置写操作，分别执行 `arkcli config set update.mode automatic` 或 `arkcli config set update.mode disabled`。
+- 说明默认策略是 `notify`，postinstall/首次运行不会推断 automatic 授权。
+- 当前六个生产 gate 全部关闭；执行 `automatic` 时应返回 unavailable，并确认配置与 consent 未写入，不得声称已开启。
 - 关闭静默自动安装但保留提示时使用 `arkcli config set update.mode notify`。
 - 不把 `disabled` 解释成禁用显式 `arkcli update` / `arkcli update --check`。
 - 不用通用 YAML 编辑或定时任务替代产品命令。
