@@ -1,0 +1,54 @@
+{
+  "name": "@volcengine/ark-plan-api",
+  "version": "0.1.0",
+  "description": "Volcengine Ark provider plugin for DeepSeek Harness (DSH): registers Agent Plan, Coding Plan, and postpaid routes on the native pi-ai adapter so Ark models appear in the model picker.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Beijing Volcano Engine Technology Co., Ltd.",
+  "homepage": "https://www.volcengine.com/product/ark",
+  "main": "./index.js",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "cordis-plugin",
+    "ark",
+    "volcengine",
+    "llm-provider"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  },
+  "dsh": {
+    "plugin": true,
+    "kind": "server",
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/volcengine/ark-cli.git",
+    "directory": "dsh-plugins/ark-plan-api"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  }
+}

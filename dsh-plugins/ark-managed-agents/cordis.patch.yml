@@ -1,0 +1,56 @@
+# Copyright (c) 2025-2026 Beijing Volcano Engine Technology Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+# ============================================================================
+# ark-managed-agents — DeepSeek Harness bundle patch
+#
+# Inserts two rows:
+#  1. @volcengine/ark-managed-agents — this package's own node half, so DSH
+#     mounts its fiber and serves the client face (the "Managed Agents"
+#     settings tab).
+#  2. @volcengine/ark-managed-agents-mcp — an @deepseek-ai/dsh-mcp-client
+#     instance (the MCP bridge ships with DSH) that spawns the bundled stdio
+#     MCP server (lib/mcp-server.js), exposing the Managed-Agents task tools
+#     to the agent as mcp__ark_ma__ma_dispatch_task / ma_get_status /
+#     ma_get_trajectory / ma_get_result / ma_list_agents /
+#     ma_list_artifacts / ma_download_artifacts.
+#
+# Because the mcp-client row carries `config:`, the tools activate on the next
+# Host start (not via live hot-mount).
+#
+# command uses process.execPath (the running node/Electron binary) with
+# ELECTRON_RUN_AS_NODE so it works under both `dsh` (system node) and the
+# desktop app. The server path is resolved from the profile (loader.filename
+# lives in the profile dir) so it works wherever the package is installed.
+# ============================================================================
+
+- insert:
+    - id: '@volcengine/ark-managed-agents'
+      name: '@volcengine/ark-managed-agents'
+
+    - id: '@volcengine/ark-managed-agents-mcp'
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: ark_ma
+        transport: stdio
+        command: !!js process.execPath
+        args:
+          - !!js >-
+              (function(){ var M=process.getBuiltinModule('node:module'); var a=[];
+              try{ if(typeof baseUrl!=='undefined'&&baseUrl) a.push(baseUrl); }catch(e){}
+              try{ if(typeof loader!=='undefined'&&loader&&loader.filename) a.push(loader.filename); }catch(e){}
+              try{ if(typeof loader!=='undefined'&&loader&&loader.url) a.push(loader.url); }catch(e){}
+              try{ a.push(dshHomePath('profiles','web','package.json')); }catch(e){}
+              try{ a.push(process.cwd()+'/'); }catch(e){}
+              var spec='@volcengine/ark-managed-agents/mcp-server';
+              for(var i=0;i<a.length;i++){ try{ return M.createRequire(a[i]).resolve(spec); }catch(e){} }
+              throw new Error('@volcengine/ark-managed-agents: cannot resolve mcp-server from '+JSON.stringify(a)); })()
+        env:
+          ELECTRON_RUN_AS_NODE: '1'
+          ARK_MA_API_KEY: !!js process.env.ARK_MA_API_KEY || ''
+          ARK_API_KEY: !!js process.env.ARK_API_KEY || ''
+          ARK_MA_BASE_URL: !!js process.env.ARK_MA_BASE_URL || ''
+          DSH_HOME: !!js process.env.DSH_HOME || (process.getBuiltinModule('node:path').join(process.env.HOME || process.env.USERPROFILE || '', '.dsh'))
+          HOME: !!js process.env.HOME || ''
+          PATH: !!js process.env.PATH || ''
+        toolCallTimeoutMs: 300000
+        failOnStartupError: false
