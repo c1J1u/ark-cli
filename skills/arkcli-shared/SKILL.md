@@ -1,7 +1,7 @@
 ---
 name: arkcli-shared
-version: 2.0.4
-description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
+version: 2.1.0
+description: "arkcli 共享执行协议：首次配置入口、业务命令执行前的认证闸门、命令路由与选择顺序、输出/安全/二次确认规则。深度细节（身份解析、AK-SK 边界、API Key 恢复、实名闸门、profile 默认与漂移、临时数据面执行上下文、版本检查与显式升级、全局 flags、故障分流）按需在 references/ 加载。当用户第一次使用 arkcli、遇到未登录/鉴权失败、询问版本是否最新或要求升级 arkcli、需要判断该走产品命令还是 raw api、或任何 arkcli-* skill 需要公共上下文时触发。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -21,6 +21,7 @@ metadata:
 > | 开通 / 部署 / 精调前的实名检查 | [`../arkcli-auth/references/realname-gate.md`](../arkcli-auth/references/realname-gate.md) |
 > | `+chat`/`+gen`/`+deploy` 的默认资源与漂移 nudge | [`references/profile-defaults.md`](references/profile-defaults.md) |
 > | 临时传入 Profile / API Key / Base URL / Endpoint / 模型名 | [`references/execution-context.md`](references/execution-context.md) |
+> | 版本是否最新 / 刷新版本信息 / 显式升级 arkcli | [`references/update.md`](references/update.md) |
 > | 全局 flags 速查 | [`references/global-flags.md`](references/global-flags.md) |
 > | 报错不知归类 / 故障分流 | [`references/troubleshooting.md`](references/troubleshooting.md) |
 
@@ -32,7 +33,7 @@ metadata:
 - 首次远端调用前，先看 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)
 - `arkcli` 是产品 CLI，不是 OpenAPI Action 浏览器；不要从 Action 名反推命令设计
 - 安装: `npm i @volcengine/ark-cli -g`（公开版）
-- 版本检查、更新提示与显式升级走 [`arkcli-update`](../arkcli-update/SKILL.md)；不要把“有新版”当成自动升级授权
+- 版本检查与显式升级按需读取 [`references/update.md`](references/update.md)；`update.mode` 的读取、写入与 automatic gate 仍走 [`../arkcli-config/SKILL.md`](../arkcli-config/SKILL.md)
 
 ## 调用归因协议
 
@@ -50,7 +51,7 @@ arkcli <command> ...
 
 - `ARKCLI_CALLER_NAME` 使用稳定 Agent ID，例如 `codex` / `claude-code` / `opencode` / `openclaw` / `trae` / `cursor`；无法可靠判断时用 `unknown_agent`
 - `ARKCLI_SKILL_NAME` 填当前业务 skill 名，例如 `arkcli-gen` / `arkcli-chat` / `arkcli-models` / `arkcli-deploy`
-- 不要把 `arkcli-shared` 填进 `ARKCLI_SKILL_NAME`；本文件只是共享入口，业务归因必须落到实际 owning skill
+- 一般业务 workflow 不要把 `arkcli-shared` 填进 `ARKCLI_SKILL_NAME`，归因必须落到实际 owning skill；仅当本 skill 直接处理版本检查或显式升级时，它就是 owning skill，使用 `ARKCLI_SKILL_NAME=arkcli-shared`
 - `ARKCLI_NO_UPDATE_NOTIFIER=1` 的兼容变量名虽然只写了 notifier，但契约覆盖全部**隐式**更新活动：缓存读取/刷新、提示和 automatic 调度；它不阻止用户明确要求的 `arkcli update` / `arkcli update --check`
 - Skill 内每一条 `arkcli` 子命令都必须带完整前缀，不能只给第一条加；这样多命令 workflow 从开始到结束都使用同一已安装版本
 - 只给当前命令加前缀，不要 `export` 到整个 shell 会话，避免串到后续无关命令
@@ -96,7 +97,7 @@ arkcli profile use <name>                                    # 切换默认 prof
 
 ## 认证闸门
 
-除 `arkcli auth ...`、`arkcli profile list/show`、`arkcli +connect list` 外，默认认为业务命令**需要先过认证检查**。不要跳过认证检查就连续重试一串业务命令。
+除 `arkcli auth ...`、`arkcli profile list/show`、`arkcli +connect list`、`arkcli update ...` 外，默认认为业务命令**需要先过认证检查**。不要跳过认证检查就连续重试一串业务命令。
 
 1. 先运行 `arkcli auth status`；已登录就继续目标命令
 2. 未登录 / 凭证失效：按当前 profile 的 `tenant` 选登录命令

@@ -186,6 +186,12 @@ Token 数处理：
 
 ## 6. 最终确认并创建
 
+- 认证通过后生成并在本次创建流程中复用 `ARKCLI_SKILL_FLOW_ID=ftf_<ULID>`。
+- 按 shared 单命令前缀，在第一条创建业务命令前执行
+  `arkcli train finetune _report-activity --action create_flow_enter`。
+- 仅在机器可验证的数据校验成功后执行 `--action data_validation_success`；普通参数解析
+  和 Client Preview `--dry-run` 不上报。
+
 把完整预览呈现给用户，明确询问是否创建。只有用户确认后，才执行真实创建命令；非交互执行按 CLI 要求添加 `--yes`。
 
 成功后返回：

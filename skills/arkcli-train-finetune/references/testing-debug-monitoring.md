@@ -112,6 +112,10 @@ RL 任务中，在可用时同时观察训练 reward 和验证 reward。不要�
 
 ## 排障模式
 
+形成“明确问题分类 + 下一步建议”的有效 Debug 结论后，复用当前
+`ARKCLI_SKILL_FLOW_ID`（没有则生成 `ftf_<ULID>`），按 shared 单命令前缀执行
+`arkcli train finetune _report-activity --action debug_success`。仅完成查询但尚无结论时不报。
+
 1. 读取任务状态和失败原因。
 2. 检查 rollout/grader 日志和轨迹。
 3. 用最小失败样本本地复现。

@@ -14,21 +14,35 @@ profile、scope 与文件落点并取得确认；只能用 `helper list` 做只�
 
 ## `arkcli helper mcp [target]`
 
-把内置 MCP server 注入目标 agent 的配置文件,**不动 model / provider / base_url**。**个人版 `agent-plan` 四台**(豆包搜索 web-search + dataPro-search + openviking-dataplane + openviking-controlplane);**团队版 `agent-plan-team` 与 OpenViking 无关,只两台**(豆包搜索 + dataPro)。豆包搜索是一个完整单元：注入 MCP、安装 `byted-web-search` Skill，并把所选 Plan 的同一把 API Key 写入该 Skill 根目录 `.env` 的 `WEB_SEARCH_API_KEY`。三者都成功后才默认关闭目标客户端的原生 `WebSearch/web_search`；传 `--keep-native-websearch` 可保留，这不属于 model/provider 改动。
+这是**不改 model / provider / base_url**的非交互 Harness 工具入口。不传 `--capability` 时完全保持存量行为：**个人版 `agent-plan` 四台 MCP**(豆包搜索 + DataPro + OpenViking 数据面/控制面)，**团队版 `agent-plan-team` 两台 MCP**(豆包搜索 + DataPro)。传 `--capability` 时只配所选单项，不带入其他已开启工具。
 
 ```
-arkcli helper mcp [target] [--profile <plan-profile>] [--ov-resource <库名>] [--scope global|project] [--keep-native-websearch] [--codex-config-scope profile|global] [--codex-profile <name>]
+arkcli helper mcp [target] [--capability <datapro|web-search|agent-memory|cua>] [--profile <plan-profile>] [--ov-resource <库名>] [--scope global|project] [--keep-native-websearch] [--codex-config-scope profile|global] [--codex-profile <name>] [--dsh-config-scope home|profile] [--dsh-profile <name>]
 ```
 
-- `target`(可选位置参数):`claude-code` | `codex` | `opencode` | `openclaw` | `trae`。
+- `target`(可选位置参数):MCP 支持 `claude-code` | `codex` | `opencode` | `openclaw` | `trae` | `deepseek-harness`；CUA 还支持 `hermes` | `pi`。
   - 传了 → 配这个(显式优先于检测)。
   - 不传 → 自动检测当前宿主 agent(host)作 target。
 - `--profile`(可选):指定用哪个 Agent Plan profile 的 key/身份。默认自动定位账号下唯一的 Agent Plan profile(`agent-plan` 或 `agent-plan-team` 都可;但**团队版不含 OpenViking**,见下)。
-- `--ov-resource`(可选):指定 openviking-dataplane 绑定的 OpenViking 库(按库名,也接受 ResourceID)。账号有多个库且未指定时命令会报错并列出可选库名。
+- `--capability`(可选):不传即整组 MCP；传入后仅接受下表稳定能力名。
+- `--ov-resource`(可选):仅整组 MCP 或 `--capability agent-memory` 使用，指定 openviking-dataplane 绑定的 OpenViking 库。显式选其它 capability 时传该 flag 会报错。
 - `--scope`(可选,**仅 Trae**):`global`(默认)写用户级 `~/.trae/mcp.json`;`project` 写当前目录 `./.trae/mcp.json`。其它 agent 传 `--scope project` 会报错(一律用户级全局)。
-- `--keep-native-websearch`(可选):豆包搜索配置成功后保留目标 Agent 的原生 WebSearch；不传时采用推荐默认值“关闭原生 WebSearch”。该 flag 不改变 routing.v1 的 Provider allowlist。
+- `--keep-native-websearch`(可选):仅整组 MCP 或 `--capability web-search` 使用。豆包搜索配置成功后保留目标 Agent 的原生 WebSearch；不传时采用推荐默认值“关闭原生 WebSearch”。
 - `--codex-config-scope`(可选,**仅 Codex**):`profile`(默认)写 `~/.codex/<profile>.config.toml`;`global` 写 `~/.codex/config.toml`。
 - `--codex-profile`(可选,**仅 Codex profile 模式**):Codex profile 名,默认 `arkcli`。
+- `--dsh-config-scope`(可选,**仅 DeepSeek Harness**):`home`(默认)写 `$DSH_HOME/cordis.patch.yml`;`profile` 写 `$DSH_HOME/profiles/<name>/cordis.patch.yml`。
+- `--dsh-profile`(可选,**仅 DSH profile 模式**):与 `--dsh-config-scope profile` 一起使用；Helper 会确保对应 profile 目录存在。
+
+### 单能力矩阵
+
+| `--capability` | profile 范围 | 精确动作 |
+|---|---|---|
+| `datapro` | 个人版 / 团队版 | 只注入 `dataPro-search`；不查 OpenViking，不安装豆包搜索 Skill |
+| `web-search` | 个人版 / 团队版 | 只注入搜索 MCP + 安装 `byted-web-search` + 写 Skill 凭证；默认关闭原生 WebSearch |
+| `agent-memory` | **仅个人版** | 只配 OpenViking control-plane，有库时同时配 data-plane；团队版 fail-fast |
+| `cua` | **仅个人版 Large/Max** | 只给位置参数指定的 target 安装 `ark-cua` Skill；仅本地读 profile 资格，不刷新 Plan Key、不注入 MCP、不写模型、不扫描其他 Agent；安装失败返回非零 |
+
+profile 仍完全复用现有 `--profile`：账号只有一个 Agent Plan profile 时自动选择；个人版与团队版并存时必须显式指定。不增加另一个 agentplan/team 参数。
 
 ### target 解析顺序(host ≠ target)
 
@@ -73,6 +87,13 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 
 ### 输出样例
 
+只给 Codex 安装 CUA：
+
+```
+✓ 已为 codex 安装云电脑 skill (plan: agent-plan_cn-beijing)
+请重启 Codex 以加载新安装的能力。
+```
+
 个人版 `agent-plan` —— 四台全注入:
 
 ```
@@ -101,6 +122,8 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 | opencode | `~/.config/opencode/opencode.json`(`mcp.*`,merge 保留其它键) | 重启 |
 | openclaw | `~/.openclaw/openclaw.json`(`mcp.servers.*` + 启用 mcporter skill) | 重启 |
 | trae | 默认 `~/.trae/mcp.json`(`mcpServers.*`,与 claude 同构);`--scope project` → `./.trae/mcp.json` | 全局:去「设置 → MCP」确认 MCP 已启用 + 重启;项目级:开「启用项目级 MCP」开关 + 重开项目 |
+| deepseek-harness | 默认 `$DSH_HOME/profiles/<name>/cordis.patch.yml`(`--dsh-profile <name>` 必填);`--dsh-config-scope home` → `$DSH_HOME/cordis.patch.yml` | 重启 `dsh --profile <name>`(profile scope);home 层全局生效 |
+| workbuddy | 同时写 `~/.workbuddy-ai/mcp.json`、`~/.workbuddy/mcp.json` 与 `~/.codebuddy/mcp.json`(`mcpServers.*`,与 claude 同构);model 清单写各自 `models.json`(OpenAI 兼容,arkcli 项打 `arkcliManaged` marker) | 重启 CodeBuddy IDE |
 
 ### 原生 WebSearch 的选择与精确落点
 
@@ -114,6 +137,7 @@ TTY 配置豆包搜索时，在 MCP 与 Skill 都成功后展示“关闭原生 
 | openclaw | `~/.openclaw/openclaw.json`：`tools.web.search.enabled = false` | 用户全局 | 恢复原值或删除 ArkCLI 新增字段 |
 | trae | 项目根 `.trae/hooks.json`：`PreToolUse` 精确拒绝 `^(WebSearch\|web_search)$` | 项目级；需在 `TRAE Settings > Hooks` 启用项目 | 只移除 ArkCLI 的精确 Hook |
 | hermes | `~/.hermes/config.yaml`：`agent.disabled_toolsets` 加入 `search` | 用户全局；当前 Hermes 尚不支持 MCP，暂不会由 helper 触发 | 后续 MCP 支持接入后沿用同一可逆策略 |
+| deepseek-harness | patch 层对 `@deepseek-ai/dsh-tool-web` 加 `disabled: true`(`arkcli_managed: tool-web` marker) | profile 级(profile 层 patch) | 只移除 ArkCLI 注入的 marker entry；用户原本关闭不接管 |
 
 边界：只关闭 `WebSearch/web_search`。不得把 `webfetch`、`web_extract`、`x_search`、浏览器工具或 Hermes 的整个 `web` toolset 一起关闭。
 
@@ -123,10 +147,14 @@ TTY 配置豆包搜索时，在 MCP 与 Skill 都成功后展示“关闭原生 
 
 | 现象 | 原因 | 处理 |
 |------|------|------|
-| `无法确定要配置哪个 agent` | host 不是可检测的 3 个 / 信号冲突 / 无信号(含 Codex / Trae 等) | 显式 `arkcli helper mcp <claude-code\|codex\|opencode\|openclaw\|trae>` |
-| `<X> 暂不支持 MCP 注入` | target 是 hermes 或未来不支持的 agent | 仅 claude-code/codex/opencode/openclaw/trae 可注入 |
+| `未知 --capability` | 传了服务端 HarnessName、MCP server ID 或 `all` | 只用 `datapro` / `web-search` / `agent-memory` / `cua`；要整组时去掉该 flag |
+| `agent-memory 仅支持 Agent Plan 个人版` | `--profile` 指向 `agent-plan-team` | 换个人版 profile；团队版不含 OpenViking |
+| `cua 仅支持 Agent Plan 个人版 Large/Max` | profile 是团队版或个人版 Small/Medium | 换合格的个人版 profile，不要改用 `configure --with-cua` 绕过资格闸 |
+| `无法确定要配置哪个 agent` | host 不是可检测的 3 个 / 信号冲突 / 无信号(含 Codex / Trae / DSH / WorkBuddy 等) | 显式 `arkcli helper mcp <claude-code\|codex\|opencode\|openclaw\|trae\|deepseek-harness\|workbuddy>` |
+| `<X> 暂不支持 MCP 注入` | target 是 hermes 或未来不支持的 agent | 仅 claude-code/codex/opencode/openclaw/trae/deepseek-harness/workbuddy 可注入 |
 | `--scope project 仅 Trae 支持` | 对非 Trae agent 传了 `--scope project` | 去掉 `--scope`(其它 agent 一律用户级全局) |
 | `--codex-config-scope / --codex-profile 仅 Codex harness 支持` | 对非 Codex agent 传了 Codex 专属 flag | 去掉 Codex flag,或 target 改为 `codex` |
+| `--dsh-config-scope / --dsh-profile 仅 DeepSeek Harness 支持` | 对非 DSH agent 传了 DSH 专属 flag，或给 `--capability cua` 传了 MCP 配置 flag | 去掉 DSH flag，或对 MCP capability 将 target 改为 `deepseek-harness`；CUA 只安装 Skill，不接受这些 flag |
 | `未找到 Agent Plan profile` | 账号无 agent-plan 订阅 / 未登录 | `arkcli auth login` 开通 Agent Plan |
 | `检测到多个 Agent Plan profile` | 多个 agent-plan profile | 加 `--profile <名>` 指定 |
 | `profile X 不是 Agent Plan` | `--profile` 指了非 Agent Plan(agent-plan / agent-plan-team 之外) | 换成 Agent Plan profile |
@@ -152,13 +180,14 @@ arkcli helper configure codex \
 - 没有自己创建的 Endpoint 时，交互向导会打开 `https://ark.volcengine.com/region:cn-beijing/endpoint/create?agentMode=close`，用户创建后选“刷新列表”。
 - Endpoint ID 写入 Agent 配置的 `model`；base URL 使用 `https://ark.<region>.volces.com/api/v3`。context window、max completion tokens、输入/输出模态通过 Endpoint 绑定的基础模型名，复用 Plan 当前的 ArkModels `LookupModelMeta → enrichModelMeta` 管道；查询失败时扩展字段保持未知并省略。
 - Hermes Agent 使用 `volcengine-platform` provider，把 Endpoint ID 写入 `model.default` 和 provider 模型列表，并写入上述 OpenAI-compatible base URL。Hermes 仅支持 model/provider，不支持 MCP 注入。
+- Pi 把 Endpoint ID 作为 model 写入 `~/.pi/agent/models.json` 的 plan provider（`api: openai-completions` + 上述 base URL），并把 `~/.pi/agent/settings.json` 的 `defaultProvider` / `defaultModel` 指过去。Pi 仅支持 model/provider，不支持 MCP 注入。
 - Platform 元数据接入不修改 Agent Plan / Coding Plan 的模型列表、默认模型、富化结果或失败退化语义。Chat/Responses 的具体调用方式继续由 Agent 当前 harness 行为决定。
 
 ## 与 `arkcli helper` / `configure` 的关系
 
 - `arkcli helper`(交互):选 Platform / Coding Plan 时保持原流程；选择 Agent Plan / Agent Plan Team 时走 profile→model→AI Agent→写 model/provider→**Harness 能力选择页**→逐项真实配置。完成后 Helper 反向读取真实本地状态，动态展示已安装且凭证有效的 Provider，再由用户最终确认 routing.v1；零 Provider 时只能返回配置或不启用退出。只能在 TTY 跑。
 - `configure --with-mcp [--keep-native-websearch] [--with-supabase] [--with-routing]`(非交互):配 model/provider **并**注入 MCP(会(重)写 model);加 `--with-supabase` 再连带配 byted-supabase(CLI+Skill+登录态,资格不够/失败只 warn)；`--with-routing` 仅 Volc Agent Plan 家族可用，隐含业务 MCP，并在写 Harness 配置前做版本/能力门禁。豆包搜索成功后默认关闭原生 WebSearch，加 `--keep-native-websearch` 保留；强制路由只管理四类受管 Provider。**这是非交互/agent 一条命令配齐全套 harness 工具的入口**。Codex 默认写 profile `arkcli`,用 `--codex-config-scope global` 才改全局配置。
-- `mcp`(非交互):注入 MCP 且不改 model/provider；豆包搜索成功后默认关闭原生 WebSearch，加 `--keep-native-websearch` 保留 —— 适合"已经配好 agent、只想加豆包搜索"或 prompt 触发。**不含 Supabase**。
+- `mcp`(非交互):不传 `--capability` 注入整组 MCP；传入则只配所选 Harness 能力。两者都不改 model/provider。**不含 Supabase**。
 
 ## Agent Plan Harness 能力矩阵
 

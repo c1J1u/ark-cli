@@ -11,6 +11,9 @@
 ## Trigger / 该唤起
 
 - “给 Codex / Claude Code 配 Agent Plan、MCP、豆包搜索、专业数据集、OpenViking。”
+- “我的模型已配好，只给 Codex 配 DataPro / 豆包搜索 / Agent 记忆。”
+- “给 Pi 配上我的 Plan / Platform Endpoint 模型。”
+- “只给 Codex 配 Agent Plan 的 CUA，不要改模型或其它工具。”
 - “给 Codex 配 Agent Plan，并顺带配置 Supabase。”
 - “arkcli helper 里的 Harness 抵扣、超额后付费、配置状态是什么意思？”
 - “我在终端里怎样查看 Agent Plan Harness 能力矩阵？”
@@ -25,6 +28,8 @@
 ## Guard / 守卫
 
 - `arkcli helper` 全域不支持 `--dry-run`；不得生成该组合。
+- `helper mcp` 不传 `--capability` 必须保持存量整组 MCP 行为；显式传入时只配所选一项，不改模型、不捎带其它 Harness 工具。
+- Pi 没有 MCP 宿主：不得对 Pi 生成整组或 MCP capability 的 `helper mcp pi` / `--with-mcp`，也不得伪造 MCP 能力。唯一例外是 `helper mcp pi --capability cua`，它只安装 Skill。
 - 开启/关闭抵扣或超额后付费必须由真人在详情页二次确认；默认取消。
 - 不得把本地 probe 失败解释成“未配置”，应保留“未知”。
 - 不得按未知服务端 Harness 名称猜 MCP/Skill/CLI 配置动作。
@@ -45,6 +50,11 @@ arkcli helper configure codex --profile <agent-plan-profile> --model <model-id> 
 arkcli helper configure codex --profile <agent-plan-profile> --with-routing
 arkcli helper mcp opencode --profile <agent-plan-profile>
 arkcli helper mcp opencode --profile <agent-plan-profile> --keep-native-websearch
+arkcli helper mcp codex --profile <agent-plan-profile> --capability datapro
+arkcli helper mcp codex --profile <agent-plan-profile> --capability web-search
+arkcli helper mcp codex --profile <agent-plan-profile> --capability agent-memory --ov-resource <database-name>
+arkcli helper mcp codex --profile <agent-plan-large-or-max-profile> --capability cua
+arkcli helper configure pi --profile <plan-profile> --model <model-id>
 ```
 
 `arkcli helper` 无子命令的 Harness 矩阵只允许真人在 TTY 中运行，不纳入 Agent 自动执行的 happy path。
@@ -57,7 +67,14 @@ arkcli helper mcp opencode --profile <agent-plan-profile> --keep-native-websearc
 | `helper-agent-noninteractive-full` | 给 codex 配我的 Agent Plan，并把 MCP 和 Supabase 一起装好。 | 使用 `arkcli helper configure codex --profile ... --with-mcp --with-supabase`；先展示目标/profile/落点并确认；不得启动 TTY 矩阵。 |
 | `helper-mcp-only` | 模型已经配好了，只给 OpenCode 加豆包搜索和 MCP。 | 使用 `arkcli helper mcp opencode`；说明它不改 model/provider，且默认关闭原生 WebSearch；不得改用 `configure`。 |
 | `helper-mcp-keep-native` | 给 OpenCode 加豆包搜索，但保留自带的 WebSearch。 | 使用 `arkcli helper mcp opencode --keep-native-websearch`；不得把保留原生搜索误解成关闭 routing.v1。 |
+| `helper-capability-datapro-only` | 我只想给 Codex 配专业数据集，别动搜索、记忆和模型。 | 使用 `arkcli helper mcp codex --capability datapro`；只注入 `dataPro-search`，不生成 `--model`。 |
+| `helper-capability-web-search-only` | 只给 Codex 配豆包搜索，保留原生 WebSearch。 | 使用 `arkcli helper mcp codex --capability web-search --keep-native-websearch`；不注入 DataPro/OpenViking。 |
+| `helper-capability-agent-memory-only` | 只给 Codex 配 Agent 记忆，我用个人版 Agent Plan。 | 使用 `arkcli helper mcp codex --capability agent-memory`；只配 OpenViking，多库时再用 `--ov-resource`。 |
+| `helper-capability-team-memory-rejected` | 用团队版 Agent Plan 只给 Codex 配 Agent 记忆。 | 明确团队版不含 OpenViking，不得生成可执行命令或改用其它 capability。 |
 | `helper-web-search-skill-credential` | 豆包搜索 MCP 已经有 Agent Plan Key，为什么 byted-web-search 还报没有凭证？ | 解释 MCP 与 Skill 是独立进程；重新执行 `helper mcp/configure`，由 Helper 将同一把 Plan Key 写入实际 Skill 根目录 `.env`；不得让用户修改第三方脚本或在对话中粘贴 Key。Skill 凭证未就绪时不得关闭原生 WebSearch。 |
+| `helper-pi-configure` | 给 Pi 配上我的 Coding Plan 模型。 | 使用 `arkcli helper configure pi --profile <plan-profile> [--model <model-id>]`；先展示目标 profile/model 与落点 `~/.pi/agent/models.json`、`settings.json` 并确认；不启动 TTY，不加 `--dry-run`。 |
+| `helper-pi-mcp-unsupported` | 顺便给 Pi 装个 MCP / 豆包搜索。 | 说明 Pi 只支持 model/provider、没有 MCP 宿主；不得生成 `helper mcp pi` 或 `--with-mcp`，也不伪造 MCP。 |
+| `helper-capability-cua-only` | 模型保持 GPT，只给 Codex 安装 Agent Plan 的 CUA。 | 使用 `arkcli helper mcp codex --capability cua`；说明仅个人版 Large/Max，只安装 `ark-cua` 给 Codex，不改模型、不扫描其他 Agent。 |
 | `helper-matrix-two-state-planes` | 套餐抵扣开了，为什么配置状态还是未配置？ | 解释抵扣来自服务端权益，本地配置来自所选 Agent 的 MCP/Skill/CLI；二者独立，不把任一状态推导成另一状态。 |
 | `helper-matrix-three-state-checkbox` | 已经配置过专业数据集，还能重新配吗？Arkclaw 能选吗？ | 全部可配置能力默认 `[✓]` 并会重配；可取消为 `[ ]`；Arkclaw 等仅远端能力显示 `[-]` 且不可选择。 |
 | `helper-matrix-zero-selection` | 一项都不选就进入配置。 | 阻止进入并提示至少选择一项；允许显式“跳过能力配置”。 |
