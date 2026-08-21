@@ -1,0 +1,72 @@
+{
+  "name": "@volcengine/ark-managed-agents",
+  "version": "0.1.0",
+  "description": "Volcengine Ark Managed Agents plugin for DeepSeek Harness (DSH): a Managed Agents settings tab plus tools to dispatch tasks to Ark cloud Managed Agents and retrieve their trajectory, result, and artifacts.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "Beijing Volcano Engine Technology Co., Ltd.",
+  "homepage": "https://www.volcengine.com/product/ark",
+  "main": "./lib/index.js",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "cordis-plugin",
+    "ark",
+    "volcengine",
+    "managed-agents",
+    "mcp"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  },
+  "dsh": {
+    "plugin": true,
+    "kind": "server",
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/volcengine/ark-cli.git",
+    "directory": "dsh-plugins/ark-managed-agents"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "files": [
+    "lib",
+    "client",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./mcp-server": "./lib/mcp-server.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  }
+}
