@@ -39,6 +39,14 @@
     "url": "https://github.com/volcengine/ark-cli.git",
     "directory": "dsh-plugins/ark-managed-agents"
   },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"
   },

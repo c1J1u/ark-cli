@@ -1,0 +1,12 @@
+{
+  "name": "@volcengine/ark-cli-dsh-plugins",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Build workspace for Volcengine Ark DSH plugins. Source code is kept in a private repository; this directory holds only public metadata and release scripts.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
+  }
+}

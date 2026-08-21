@@ -1,0 +1,45 @@
+name: Release DSH Plugins
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag, e.g. dsh-plugins/v0.1.0'
+        required: true
+      plan_api_tgz_url:
+        description: 'Publicly accessible URL to the prebuilt ark-plan-api.tgz'
+        required: true
+      managed_agents_tgz_url:
+        description: 'Publicly accessible URL to the prebuilt ark-managed-agents.tgz'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ark-cli metadata
+        uses: actions/checkout@v4
+
+      - name: Download prebuilt tarballs
+        run: |
+          mkdir -p dsh-plugins/dist
+          curl -fsSL -o dsh-plugins/dist/ark-plan-api.tgz "${{ github.event.inputs.plan_api_tgz_url }}"
+          curl -fsSL -o dsh-plugins/dist/ark-managed-agents.tgz "${{ github.event.inputs.managed_agents_tgz_url }}"
+
+      - name: Verify tarballs
+        run: |
+          ls -la dsh-plugins/dist/
+          tar -tzf dsh-plugins/dist/ark-plan-api.tgz >/dev/null
+          tar -tzf dsh-plugins/dist/ark-managed-agents.tgz >/dev/null
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: DSH Plugins ${{ github.event.inputs.release_tag }}
+          files: |
+            dsh-plugins/dist/ark-plan-api.tgz
+            dsh-plugins/dist/ark-managed-agents.tgz
