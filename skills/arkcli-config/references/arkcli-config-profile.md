@@ -22,10 +22,15 @@ arkcli profile delete default --format json
 arkcli config reset --format json
 
 # 更新策略（只允许 update.mode）
-arkcli config set update.mode notify
 arkcli config set update.mode automatic
 arkcli config set update.mode disabled
 ```
+
+公开模式只有 `automatic` 和 `disabled`。`disabled` 关闭静默安装，但保留隐式版本检查、更新提示以及显式 `arkcli update` / `arkcli update --check`。历史 YAML 中的 `notify` 仅作为兼容输入读取，不再是可设置选项。
+
+对应 production gate 开启后，真正全新的 stable 全局 npm 安装会先进入与 exact install 绑定的惰性 enrollment：第一次成功的人工业务命令只告知和完成宽限，第二次只激活 consent，第三次以后才可能调度。手工重装或降级会使旧 consent 失效并暂停 automatic。
+
+长期锁定版本必须先执行 `arkcli config set update.mode disabled`，再安装精确 npm 版本；新机器首次安装历史版本时，先给安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，安装完成后再持久写入 `disabled`。配置位于 `$HOME/.arkcli/config.yaml`，npm 重装不会覆盖。
 
 ## 旧命令兼容映射
 

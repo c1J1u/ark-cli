@@ -1,7 +1,7 @@
 ---
 name: arkcli-config
-version: 1.1.1
-description: "arkcli 本地配置管理。处理 profile 配置归因、update.mode 的 notify/automatic/disabled 策略、config reset 与历史 yaml 排障；profile 类操作优先使用 `arkcli profile <subcmd>`。"
+version: 1.2.0
+description: "arkcli 本地配置管理。处理 profile 配置归因、update.mode 的 automatic/disabled 策略、config reset 与历史 yaml 排障；profile 类操作优先使用 `arkcli profile <subcmd>`。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -42,7 +42,7 @@ metadata:
 3. 切换默认 profile：`arkcli profile use <name>`
 4. 创建 profile：`arkcli profile create --type=...`（详见 arkcli-profile 子树，本 skill 不重复）
 5. `arkcli config reset` 是破坏性操作（清整个本地配置文件），必须确认用户意图
-6. 更新策略只使用 allowlist 命令：`arkcli config set update.mode notify|automatic|disabled`
+6. 更新策略只使用 allowlist 命令：`arkcli config set update.mode automatic|disabled`
 
 ## 配置归因（优先级）
 
@@ -94,9 +94,8 @@ metadata:
 | 命令 | 说明 | 状态 |
 |------|------|------|
 | `arkcli config reset` | 删除整个本地配置文件（保留） | ✅ 活跃 |
-| `arkcli config set update.mode notify` | 关闭静默自动安装，保留隐式检查与提示 | ✅ 活跃 |
-| `arkcli config set update.mode automatic` | 未来 gate 开启后显式授权当前 exact install；当前六个生产 gate 全关闭，命令会返回 unavailable 且不写配置 | ⛔ 当前不可用 |
-| `arkcli config set update.mode disabled` | 关闭隐式检查、提示与自动更新；不禁用手工 update | ✅ 活跃 |
+| `arkcli config set update.mode automatic` | 显式为当前 exact install 启用 automatic；手工重装后也用它恢复授权 | ✅ 活跃 |
+| `arkcli config set update.mode disabled` | 关闭静默自动安装，保留隐式版本检查、更新提示和手工 update | ✅ 活跃 |
 | `arkcli profile show [--profile <name>]` | 查看解析后配置或指定 profile | ✅ 替代 `config show` |
 | `arkcli profile list` | 列出所有 profile（含 type/region/project 切面） | ✅ 替代 `config list` |
 | `arkcli profile use <name>` | 切换默认 profile | ✅ 替代 `config switch` |
@@ -104,7 +103,28 @@ metadata:
 | `arkcli profile create --type=...` | 创建 profile（替代旧 `config init`） | ✅ 替代 `config init` |
 | `arkcli config init/list/show/switch/delete` | 旧子命令，0.2.x 移除 | ⚠️ deprecated |
 
-普通 npm postinstall、首次运行和环境变量都不得推断 automatic 授权；缺失 `update.mode` 的兼容默认值始终是 `notify`。Windows、macOS、Linux 的 fail-closed transaction 均已实现，但六个产品/平台生产 gate 当前全部为 `false`，所以 `automatic` 命令会在任何配置或 consent 写入前明确拒绝。显式 `arkcli update` 和 `arkcli update --check` 不受 gate 影响。
+公开模式只有 `automatic` 和 `disabled`。`disabled` 保留隐式版本检查和更新提示，但绝不静默安装；显式 `arkcli update` 和 `arkcli update --check` 也始终可用。缺失 `update.mode` 和历史配置中的 `notify` 对外都按 `disabled` 处理，历史配置中的 `notify` 继续按 `disabled` 兼容读取，但不得再建议用户设置 `notify`。
+
+Windows、macOS、Linux 的 fail-closed transaction 与六个产品/平台生产 gate 均已开启。普通 npm postinstall 绝不直接创建 active mutation consent，也不立即更新；只有能证明“此前没有产品状态目录”的 stable 全局 npm 新安装才创建绑定 exact install 的惰性 pending evidence。首次运行和环境变量本身不能绕过后续宽限与 exact consent。
+
+### 新安装 enrollment
+
+只有能证明“此前没有产品状态目录”的 stable 全局 npm 新安装才默认写入 `automatic`。postinstall 只创建绑定当前 exact install 的惰性 pending evidence，不创建 active consent：
+
+1. 第一次成功的人工业务命令在 stderr 告知 automatic 已开启及关闭命令；本次不调度更新，只完成宽限。
+2. 第二次成功的人工业务命令只激活 exact-install consent；本次仍不调度更新。
+3. 第三次及后续人工业务命令才可能调度 automatic patch 更新。
+
+AI Skill、CI、非 TTY、Client Preview、`config`、`update` 和内部维护命令都不消耗 enrollment，也不调度 automatic。更新成功后，下一次成功的人工业务命令只在 stderr 显示一次 `旧版本 -> 新版本` 结果，不修改 stdout 或业务退出码。
+
+手工 npm 重装、降级、安装身份变化或 `--ignore-scripts` 安装后，如果当前 exact install 没有对应 pending/consent，automatic 必须暂停，不得沿用旧安装授权。恢复时由用户明确执行 `arkcli config set update.mode automatic`；长期锁定版本使用：
+
+```bash
+arkcli config set update.mode disabled
+npm i @volcengine/ark-cli@<exact-version> -g --registry https://registry.npmjs.org
+```
+
+新机器首次安装历史版本时，先对安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，安装后再写入持久 `disabled`。`disabled` 位于 `$HOME/.arkcli/config.yaml`，npm 重装不能覆盖。`arkcli config reset` 会尽力撤销 exact consent 后再清配置，不会把用户自动放回 automatic。
 
 ## 参考
 

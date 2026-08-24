@@ -70,13 +70,22 @@ HOME="$tmp_home" arkcli config reset --format json  # 整库清理仍走 config 
 输入（用户说法）：
 
 - “以后自动更新 arkcli”
-- “关闭 arkcli 的自动更新和版本提示”
+- “关闭 arkcli 的静默自动更新”
 
 期望行为：
 
 - 明确这是持久化配置写操作，分别执行 `arkcli config set update.mode automatic` 或 `arkcli config set update.mode disabled`。
-- 说明默认策略是 `notify`，postinstall/首次运行不会推断 automatic 授权。
-- 当前六个生产 gate 全部关闭；执行 `automatic` 时应返回 unavailable，并确认配置与 consent 未写入，不得声称已开启。
-- 关闭静默自动安装但保留提示时使用 `arkcli config set update.mode notify`。
-- 不把 `disabled` 解释成禁用显式 `arkcli update` / `arkcli update --check`。
+- 说明公开模式只有 `automatic` 和 `disabled`；缺失配置及历史 `notify` 对外均按 `disabled` 处理。
+- 当前六个生产 gate 均已开启；用户显式执行 `automatic` 时应为当前 exact install 建立 consent 并持久化配置，不得把仅写配置冒充为授权成功。
+- `disabled` 关闭静默自动安装，但保留隐式版本检查、更新提示以及显式 `arkcli update` / `arkcli update --check`。
+- 不得再建议旧 `notify` setter；历史 YAML 中的 `notify` 只作为兼容输入读取。
+
+当前默认 enrollment 还必须满足：
+
+- 只有真正全新的 stable 全局 npm 安装默认进入 `fresh_pending`；已有配置和无法判断历史的安装 fail closed。
+- 第一次成功的人工业务命令只告知并完成宽限，第二次只激活 exact consent，两次都不得调度；第三次以后才可能调度。
+- AI Skill、CI、非 TTY、Preview、config/update 与内部维护命令不消耗宽限、不调度。
+- 手工 npm 重装、降级或 `--ignore-scripts` 后旧 consent 失效并暂停；不得声称会自动重新授权。
+- 长期锁定先执行 `arkcli config set update.mode disabled`，再安装精确版本。新机器先给安装命令设置 `ARKCLI_NO_UPDATE_NOTIFIER=1`，随后持久写入 `disabled`。
+- automatic 成功结果只在下一次人工业务命令的 stderr 显示一次，不得污染 stdout 或改变业务退出码。
 - 不用通用 YAML 编辑或定时任务替代产品命令。
