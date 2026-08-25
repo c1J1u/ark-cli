@@ -14,18 +14,22 @@ A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) cord
 
 ## Install / 安装
 
-See the top-level [dsh-plugins README](..) and the official documentation for the one-liner install command:
-
-一键安装命令见上级 [dsh-plugins README](..) 与官方文档：
-
-<https://www.volcengine.com/docs/82379>
-
-From a local clone (development):
-
-从本地源码安装（开发用）：
+### From GitHub Release (recommended / 推荐)
 
 ```sh
-dsh plugin --profile web add ./dsh-plugins/ark-plan-api
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/latest/download/ark-plan-api.tgz
+```
+
+### Via awesome-dsh-plugin registry
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add volcengine/ark-cli#ark-plan-api
+```
+
+### From a local clone (development / 开发用)
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add ./dsh-plugins/ark-plan-api
 ```
 
 Restart DSH after install, then open **Settings → Models**, pick an Ark provider and paste your API key. Each route reads its key from a separate env var (see table below); the Models UI writes the key to the correct name automatically.
