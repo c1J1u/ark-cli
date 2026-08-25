@@ -40,7 +40,7 @@ arkcli helper mcp [target] [--capability <datapro|web-search|agent-memory|cua>] 
 | `datapro` | 个人版 / 团队版 | 只注入 `dataPro-search`；不查 OpenViking，不安装豆包搜索 Skill |
 | `web-search` | 个人版 / 团队版 | 只注入搜索 MCP + 安装 `byted-web-search` + 写 Skill 凭证；默认关闭原生 WebSearch |
 | `agent-memory` | **仅个人版** | 只配 OpenViking control-plane，有库时同时配 data-plane；团队版 fail-fast |
-| `cua` | **仅个人版 Large/Max** | 只给位置参数指定的 target 安装 `ark-cua` Skill；仅本地读 profile 资格，不刷新 Plan Key、不注入 MCP、不写模型、不扫描其他 Agent；安装失败返回非零 |
+| `cua` | **仅个人版 Large/Max** | 只给位置参数指定的 target 安装 `byted-util-ark-cua` Skill；仅本地读 profile 资格，不刷新 Plan Key、不注入 MCP、不写模型、不扫描其他 Agent；安装失败返回非零 |
 
 profile 仍完全复用现有 `--profile`：账号只有一个 Agent Plan profile 时自动选择；个人版与团队版并存时必须显式指定。不增加另一个 agentplan/team 参数。
 
