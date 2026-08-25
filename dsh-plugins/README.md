@@ -20,8 +20,8 @@ This directory contains two officially maintained [DeepSeek Harness](https://git
 ### From GitHub Release (recommended / 推荐)
 
 ```sh
-npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/latest/download/ark-plan-api.tgz
-npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/latest/download/ark-managed-agents.tgz
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-plan-api.tgz
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-managed-agents.tgz
 ```
 
 This downloads the latest prebuilt tarballs from [GitHub Releases](https://github.com/volcengine/ark-cli/releases) and installs them into the `web` profile.

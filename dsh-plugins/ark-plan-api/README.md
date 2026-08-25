@@ -17,7 +17,7 @@ A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) cord
 ### From GitHub Release (recommended / 推荐)
 
 ```sh
-npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/latest/download/ark-plan-api.tgz
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-plan-api.tgz
 ```
 
 ### Via awesome-dsh-plugin registry
