@@ -17,19 +17,29 @@ This directory contains two officially maintained [DeepSeek Harness](https://git
 
 ## Install / 安装
 
-Prebuilt tarballs are attached to [GitHub Releases](https://github.com/volcengine/ark-cli/releases). For the recommended one-liner install command and full setup guide, see the official documentation:
-
-预构建安装包已附在 [GitHub Releases](https://github.com/volcengine/ark-cli/releases)。推荐的一键安装命令与完整配置指南请见官方文档：
-
-<https://www.volcengine.com/docs/82379>
-
-To install from a local clone of this repo (for development):
-
-从本地源码子目录安装（开发用）：
+### From GitHub Release (recommended / 推荐)
 
 ```sh
-dsh plugin --profile web add ./dsh-plugins/ark-plan-api
-dsh plugin --profile web add ./dsh-plugins/ark-managed-agents
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-plan-api.tgz
+npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-managed-agents.tgz
+```
+
+This downloads the latest prebuilt tarballs from [GitHub Releases](https://github.com/volcengine/ark-cli/releases) and installs them into the `web` profile.
+
+### Via awesome-dsh-plugin registry
+
+Once the plugin entries are listed in [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin), you can also install by name:
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add volcengine/ark-cli#ark-plan-api
+npx -y @deepseek-ai/dsh plugin --profile web add volcengine/ark-cli#ark-managed-agents
+```
+
+### From a local clone (for development / 开发用)
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add ./dsh-plugins/ark-plan-api
+npx -y @deepseek-ai/dsh plugin --profile web add ./dsh-plugins/ark-managed-agents
 ```
 
 ## Post-install / 安装后
@@ -46,8 +56,8 @@ dsh plugin --profile web add ./dsh-plugins/ark-managed-agents
 ## Uninstall / 卸载
 
 ```sh
-dsh plugin --profile web remove @volcengine/ark-managed-agents
-dsh plugin --profile web remove @volcengine/ark-plan-api
+npx -y @deepseek-ai/dsh plugin --profile web remove ark-managed-agents
+npx -y @deepseek-ai/dsh plugin --profile web remove ark-plan-api
 ```
 
 ## Documentation / 文档
