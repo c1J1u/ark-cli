@@ -24,7 +24,13 @@ This package ships two runtime pieces:
 
 ## Install / 安装
 
-### From GitHub Release (recommended / 推荐)
+### From npm (recommended / 推荐)
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add @volcengine/ark-managed-agents
+```
+
+### From GitHub Release
 
 ```sh
 npx -y @deepseek-ai/dsh plugin --profile web add https://github.com/volcengine/ark-cli/releases/download/dsh-plugins%2Fv0.1.0/ark-managed-agents.tgz
