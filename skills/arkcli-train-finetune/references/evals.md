@@ -42,3 +42,5 @@ arkcli train finetune trajectory list <mcj-id> --full
 | `finetune-trajectory-full-exact-scope` | 查询指定 MCJ 的完整 rollout trajectory；无轨迹时保留原错误，不扩大范围。 | 执行 `arkcli train finetune trajectory list <mcj-id> --full`；不得尝试 `train trajectory`、遍历 help、查询其他任务或读取 profile/MCP 配置。 |
 | `finetune-logs-follow-terminal` | 对已 Completed 的指定任务执行 `logs --follow --format json`。 | 输出剩余日志和终态后自动退出，不依赖外部 timeout；不得持续轮询终态任务。 |
 | `finetune-resume-paused-help` | pause 后的任务能不能 resume？ | 说明 `resume` 主要用于恢复 `Paused`，与 `pause` 可逆；后端允许时也可 retry `Failed` / `Terminated`；不得声称只支持 Failed。 |
+| `finetune-managed-dataset-preset` | 用 `ds-1/dsv-1` 作为训练集，并注入 `dsv-preset` 100 条。 | 使用 `--train-dataset ds-1:dsv-1` 和 `--preset-dataset '{"dataset_version_id":"dsv-preset","inject_sample_count":100}'`；先按模型配置校验 schema 和 preset 支持；不得同时传训练 TOS/本地文件，不得使用 Client Preview `--dry-run`。 |
+| `finetune-managed-train-path` | 用 ds-1/dsv-1 放大 2 倍，并从 ds-2/dsv-2 采样 500 条。 | 重复使用 `--train-path`，分别只传 `multiplier` 和 `sample_count`；拒绝单项同时传两者，也拒绝与 `--train-dataset`、训练 TOS 或本地文件混用。 |

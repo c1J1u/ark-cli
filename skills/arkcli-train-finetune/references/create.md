@@ -81,10 +81,12 @@ arkcli train finetune create --help
 | `--type`                                                     | 训练类型；未指定时按“默认 SFT + LoRA”处理                                  |
 | `--train-file`                                               | 本地训练文件，可重复                                                   |
 | `--train-tos-uri`                                            | 已上传训练数据 TOS URI                                              |
-| `--train-dataset` + `--train-dataset-version`                | 已有训练数据集引用；本 skill 不创建数据集                                     |
+| `--train-dataset <dataset-id>:<version-id>`                  | 已有训练 Dataset；旧的独立 `--train-dataset-version` 仍兼容                    |
+| `--train-path <json>`                                       | 普通训练 Dataset，可重复；每项设置 `dataset_id`、`dataset_version_id`，最多再设置 `multiplier`/`sample_count` 之一 |
+| `--preset-dataset <json>`                                   | 模型支持的预置数据集，可重复；每项设置 `dataset_version_id`，并在 `inject_multiplier`/`inject_sample_count` 中二选一 |
 | `--validation-file`                                          | 本地验证文件，可重复                                                   |
 | `--validation-tos-uri`                                       | 已上传验证集 TOS URI                                               |
-| `--validation-dataset-id` + `--validation-dataset-version`   | 已有验证数据集引用                                                    |
+| `--validation-dataset <dataset-id>:<version-id>`             | 已有验证 Dataset；旧的独立版本参数仍兼容                                    |
 | `--validation-percentage`                                    | 从训练集中切分验证集；与显式验证集互斥                                          |
 | `--hyperparameters`                                          | JSON 字符串或 `@file`；值按后端要求传字符串                                 |
 | `--epochs`、`--lr`、`--lora-rank`、`--beta`                     | 旧式快捷参数；可用时会合并进 hyperparameters，快捷参数冲突时优先                     |
@@ -97,10 +99,27 @@ arkcli train finetune create --help
 
 ## 3. 获取并校验训练数据
 
-本期不创建或管理平台数据集。接受以下任一输入：
+本 skill 不创建或管理平台 Dataset；需要时先转 [`../../arkcli-datasets/SKILL.md`](../../arkcli-datasets/SKILL.md)。创建任务可接受：
 
 - 本地训练文件
 - 已上传的 TOS URL
+- 平台 Dataset 的 `<dataset-id>:<version-id>` 引用
+- 模型配置明确支持的 preset Dataset
+
+同一训练集或验证集只能选择一种普通数据来源；Dataset 与对应的 TOS/本地文件参数互斥。单个普通 Dataset 默认 `Multiplier=1`；需要重复引用、倍率或采样数时使用可重复的 `--train-path`。每项最多设置 `multiplier`/`sample_count` 之一，均不设置时仍默认 `Multiplier=1`：
+
+```bash
+--train-path '{"dataset_id":"ds-...","dataset_version_id":"dsv-...","multiplier":2}'
+--train-path '{"dataset_id":"ds-...","dataset_version_id":"dsv-...","sample_count":500}'
+```
+
+`--train-path` 不能和 `--train-dataset`、训练 TOS 或本地文件混用。preset 使用可重复 JSON，`inject_multiplier` 与 `inject_sample_count` 也必须且只能设置一个：
+
+```bash
+--preset-dataset '{"dataset_version_id":"dsv-...","inject_sample_count":100}'
+```
+
+CLI 会根据精确模型版本和训练类型检查 Dataset schema，并拒绝模型配置未声明支持的 preset。
 
 用户未提供数据时，请其提供训练集文件或现有数据引用。
 

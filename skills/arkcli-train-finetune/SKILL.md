@@ -13,7 +13,8 @@ description: 使用 ArkCLI 创建、查询和管理模型精调训练任务，�
 - 列出或筛选任务：读取 [`references/list.md`](references/list.md)
 - 查询、观察或操作一个指定任务：读取 [`references/manage.md`](references/manage.md)
 - 根据指标选择 step、导出产物并部署：读取 [`references/export-deploy.md`](references/export-deploy.md)
-- 不管理数据集，可以使用用户提供的本地文件、TOS URL。
+- 不直接管理数据集，但可以使用本地文件、TOS URL、`ds-*/dsv-*` 引用和模型支持的 preset；需要创建或维护 Dataset 时转 [`../arkcli-datasets/SKILL.md`](../arkcli-datasets/SKILL.md)。
+- 普通训练 Dataset 默认使用 `--train-dataset`（`Multiplier=1`）；需要重复引用、倍率或采样数时改用可重复的 `--train-path`。每项最多设置 `multiplier` 或 `sample_count` 之一，均不设置时仍默认 `Multiplier=1`。preset 必须在 `inject_multiplier` 与 `inject_sample_count` 中二选一。
 - 训练产物的指标分析和 artifact export 由本 skill 编排；custom model 详情、可部署版本准备和 Endpoint 创建必须按模型仓库及部署 skill 执行。
 - 不把 Raw API 或精调 SDK 当默认入口。
 
