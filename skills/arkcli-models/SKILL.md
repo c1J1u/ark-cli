@@ -1,7 +1,7 @@
 ---
 name: arkcli-models
 version: 1.0.0
-description: "arkcli 模型查询能力：列出、搜索、获取火山**公共基础模型**（foundation models）详情。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。注意：查询/管理账号下**自传或精调的自定义模型**（`cm-xxx`）走 arkcli-custommodel；本 skill 只覆盖公共基础模型目录。语音/TTS/ASR/播客/音色/实时语音交互模型只支持广场检索和选型说明，不要引导 +chat/+gen/+deploy/+code-example/usage/pricing/onboard/auth apikey。"
+description: "arkcli 模型查询能力：列出、搜索、获取火山公共基础模型详情；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -26,6 +26,7 @@ metadata:
 - 用户要搜索、筛选、对比方舟模型
 - 用户要查看模型详情、版本、上下文、模态或 lifecycle 状态
 - 用户要统计或列出"我的模型"、"自定义模型"、"最近创建的模型"
+- **仅 Volc**：用户要比较 TTFT/TPOT、首 Token 延迟、持续输出延迟、性能排行、延迟趋势或不同输入长度下的性能
 - 上游 `+chat` / `+gen` / `+deploy` 需要先确定可用模型名
 - 用户问语音模型是否存在、有哪些语音模型、TTS/ASR 模型在广场叫什么：只回答广场可搜事实和当前 arkcli 不支持后续场景能力的边界
 
@@ -33,6 +34,7 @@ metadata:
 
 - 用户只是要直接对话、生成图片/视频或部署 Endpoint：先转对应 skill，只在缺模型名时回来查模型
 - 用户明确要求调用原始 Action、列出 OpenAPI 或构造底层 params：转 `arkcli-api-explorer`
+- 用户问自己的 Endpoint 为什么慢：转 `arkcli-doctor`；公共榜单不能用于 Endpoint 诊断
 - 用户是鉴权、profile、region、base URL 排障：转 `arkcli-auth` 或 `arkcli-config`
 - 不要把 `arkcli models` 当默认入口；非模型问题不要先查模型
 
@@ -80,6 +82,7 @@ metadata:
 - 用户只知道模糊模型名 / 想按意图找（"最强生视频"、"200K 上下文 LLM"、"支持 thinking 的模型"）：用 `search` —— 它做关键词模糊 + modality/context/capability 结构化过滤
 - 需要按 modality / 分页参数枚举、或精确名匹配：用 `list`
 - 用户问"我的模型"、"自定义模型"、"最近创建了多少"、"列出来"、"统计数量"：这是模型资产盘点，不是找候选模型；先读 [`references/arkcli-models-list.md`](references/arkcli-models-list.md)，用 `arkcli models list --page-all` 拉取后做客户端过滤，不要跳到 Raw API Explorer
+- **仅 Volc**：性能排行、趋势或输入长度对比时，先读 [`references/arkcli-models-performance.md`](references/arkcli-models-performance.md)，再使用 `models performance rank`、`trend` 或 `input-length`
 - 已经有明确模型 ID：用 `get`
 - 只是为 `+chat` / `+gen` / `+deploy` 找模型：查到后立即回原任务
 - 用户**主动**要开通某个基础模型（"先把 doubao-seed-1-6-flash 开通好"、"我想试用 fast-infer 子服务"、"先预览开通请求"）：用 `activate`，先读 [`references/arkcli-models-activate.md`](references/arkcli-models-activate.md)；如果用户只是要 deploy / 创建端点，由 deploy / infer-create 自行触发隐式开通即可，不要先单独 activate
@@ -167,6 +170,7 @@ arkcli models search --multimodal --output-modality text --strict-filter
 | `arkcli models search [keyword] [filters]` | **Agent 首选**：全量召回 + ArkModels enrich + modality/context/capability/cache type 结构化过滤 + 重排；返回字段含 `context_window` / `input_modalities` / `output_modalities` / `capabilities` / `cache_types` |
 | `arkcli models list` | 按 modality 全量枚举、翻页统计、模型资产盘点；轻量，不含 enrich |
 | `arkcli models get <id> [version]` | 单个模型完整详情（聚合多 API，最重也最全）|
+| `arkcli models performance {rank,trend,input-length}` | **仅 Volc**：公共模型性能排名、趋势与输入长度对比 |
 
 ## 命名约定的 tier 启发式（降级兜底：仅在场景表未命中时启用）
 

@@ -10,11 +10,13 @@
 
 - 用户明确问模型清单、模型详情、模型搜索、模型统计时，该唤起 `arkcli-models`。
 - 用户问"我的/自定义/最近创建"这类资产盘点时，该唤起 `models list` 路径。
+- Volc 用户问 TTFT/TPOT、模型性能排行、趋势或输入长度对比时，该唤起 `models performance` 路径。
 
 ## Anti-trigger / 反唤起
 
 - 用户要直接聊天、生成、部署时，不该把 `arkcli-models` 当终点；只在缺模型名时短暂进入。
 - 用户明确要 Raw API Action、OpenAPI 列表或底层 params 时，不该用本 skill，应转 `arkcli-api-explorer`。
+- 用户问自己的 Endpoint 为什么慢时，转 `arkcli-doctor`，不得用公共性能榜单替代诊断。
 
 ## Guard / 守卫
 
@@ -37,6 +39,8 @@ arkcli models search --modality text --min-context-window 200000 --capability th
 | `models-list-owned-custom` | 帮我看一下我有哪些自定义模型，输出数量和模型名。 | 使用 `arkcli models list` 做资产清单枚举，再做客户端过滤和统计 |
 | `models-search-task-fit` | 帮我找一个支持 thinking、上下文 200K 以上的文本模型用于 +chat。 | 使用 `arkcli models search --min-context-window ... --capability thinking` |
 | `models-search-speech-boundary` | 方舟广场有没有 TTS 模型？可以直接部署或生成示例代码吗？ | 使用 `arkcli models search <tts/语音关键词>` 做广场发现；明确说明语音模型当前不支持 `+deploy` / `+code-example` / usage / pricing / onboard；不得推荐 `+chat` 或 `+gen` |
+| `models-performance-rank` | 现在首 Token 最快的是哪个模型？ | Volc 使用 `arkcli models performance rank --metric ttft --format json`，说明公共数据和延迟。 |
+| `models-performance-endpoint` | 我的 ep-xxx 为什么慢？ | 不执行 performance；转 `arkcli-doctor`。 |
 
 ## 判分重点
 

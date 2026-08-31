@@ -115,7 +115,9 @@ Windows、macOS、Linux 的 fail-closed transaction 与六个产品/平台生产
 2. 第二次成功的人工业务命令只激活 exact-install consent；本次仍不调度更新。
 3. 第三次及后续人工业务命令才可能调度 automatic patch 更新。
 
-AI Skill、CI、非 TTY、Client Preview、`config`、`update` 和内部维护命令都不消耗 enrollment，也不调度 automatic。更新成功后，下一次成功的人工业务命令只在 stderr 显示一次 `旧版本 -> 新版本` 结果，不修改 stdout 或业务退出码。
+由 npm `postinstall` 启动的全部 CLI 进程（包括其中的 `+connect`）以及用户手工执行的 `+connect` 都不消耗 enrollment、不做隐式版本检查，也不调度 automatic。AI Skill、CI、非 TTY、Client Preview、`config`、`update` 和内部维护命令同样不消耗 enrollment，也不调度 automatic。更新成功后，下一次成功的人工业务命令只在 stderr 显示一次 `旧版本 -> 新版本` 结果，不修改 stdout 或业务退出码。
+
+当前生产 automatic 按明确产品策略关闭 24/48/72 小时与 10%/50%/100% cohort admission；原 rollout 实现与回归测试仍保留，在线 Probe 仍要求两次独立观测。普通 automatic 仍须满足 exact consent、实时 registry target/SRI/tarball 校验、reservation、退避和全部 staged-apply 安全边界。
 
 手工 npm 重装、降级、安装身份变化或 `--ignore-scripts` 安装后，如果当前 exact install 没有对应 pending/consent，automatic 必须暂停，不得沿用旧安装授权。恢复时由用户明确执行 `arkcli config set update.mode automatic`；长期锁定版本使用：
 

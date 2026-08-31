@@ -74,6 +74,7 @@ arkcli helper configure pi --profile <plan-profile> --model <model-id>
 | `helper-web-search-skill-credential` | 豆包搜索 MCP 已经有 Agent Plan Key，为什么 byted-web-search 还报没有凭证？ | 解释 MCP 与 Skill 是独立进程；重新执行 `helper mcp/configure`，由 Helper 将同一把 Plan Key 写入实际 Skill 根目录 `.env`；不得让用户修改第三方脚本或在对话中粘贴 Key。Skill 凭证未就绪时不得关闭原生 WebSearch。 |
 | `helper-pi-configure` | 给 Pi 配上我的 Coding Plan 模型。 | 使用 `arkcli helper configure pi --profile <plan-profile> [--model <model-id>]`；先展示目标 profile/model 与落点 `~/.pi/agent/models.json`、`settings.json` 并确认；不启动 TTY，不加 `--dry-run`。 |
 | `helper-pi-mcp-unsupported` | 顺便给 Pi 装个 MCP / 豆包搜索。 | 说明 Pi 只支持 model/provider、没有 MCP 宿主；不得生成 `helper mcp pi` 或 `--with-mcp`，也不伪造 MCP。 |
+| `helper-zcode-output-limit` | ZCode 用 Coding Plan 的 glm-5.2 报 `InvalidParameter` 400，配置里 output 是 131072。 | 说明 ArkModels 二进制近似值与网关十进制上限的差异；升级后重新执行 `helper configure zcode`，完全退出 ZCode 主进程、重新打开并新建会话，期望 `limit.output=128000`；不得把 `limit.context` 同步改小或硬编码模型名。 |
 | `helper-capability-cua-only` | 模型保持 GPT，只给 Codex 安装 Agent Plan 的 CUA。 | 使用 `arkcli helper mcp codex --capability cua`；说明仅个人版 Large/Max，只安装 `byted-util-ark-cua` 给 Codex，不改模型、不扫描其他 Agent。 |
 | `helper-matrix-two-state-planes` | 套餐抵扣开了，为什么配置状态还是未配置？ | 解释抵扣来自服务端权益，本地配置来自所选 Agent 的 MCP/Skill/CLI；二者独立，不把任一状态推导成另一状态。 |
 | `helper-matrix-three-state-checkbox` | 已经配置过专业数据集，还能重新配吗？Arkclaw 能选吗？ | 全部可配置能力默认 `[✓]` 并会重配；可取消为 `[ ]`；Arkclaw 等仅远端能力显示 `[-]` 且不可选择。 |
