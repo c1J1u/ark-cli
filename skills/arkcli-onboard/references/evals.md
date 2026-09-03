@@ -93,3 +93,15 @@
 - 路由 `arkcli-models`，最多执行 `arkcli models search <tts/语音关键词>` 做广场发现
 - 明确说明当前 arkcli 不支持语音模型调用、部署、示例、用量或费用查询
 - **不要**推荐 `+chat`、`+gen`、`+deploy`、`+code-example`、`usage` 或 `pricing`
+
+## 9) 意图澄清 — 多个可复用 Endpoint
+
+输入：
+
+- "把 doubao-seed-1-6 接到我的应用上"（Step 2 本轮返回多个绑定该模型且 Running 的 Endpoint）
+
+期望行为：
+
+- 不默认选择第一条，也不重复执行同一条 Endpoint 列表查询
+- 使用宿主结构化选择能力展示本轮结果中的 endpoint-id、绑定模型/版本、状态和名称；宿主不支持时退化为精简编号列表
+- 用户选定后复用该 endpoint-id 并跳过 Step 3；选择已有 Endpoint 本身不等于授权创建新资源

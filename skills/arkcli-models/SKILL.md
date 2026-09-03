@@ -1,7 +1,7 @@
 ---
 name: arkcli-models
-version: 1.0.0
-description: "arkcli 模型查询能力：列出、搜索、获取火山公共基础模型详情；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
+version: 1.0.5
+description: "arkcli 模型查询与基础模型服务激活能力：列出、搜索、获取火山公共基础模型详情，以及用户明确要求的开通/激活模型服务（`arkcli models activate`）；Volc 还支持 TTFT/TPOT 性能排名、延迟趋势和输入长度对比。激活已有基础模型服务不等于部署/创建 Endpoint，不得转成 `+deploy`。优先使用产品命令 `arkcli models ...`，而不是直接调用 Raw API。反触发：用户的最终目标是创建 / 部署 Endpoint 时，本 skill 只承担一次有界的只读候选查询，owning skill 由创建路径确定：普通产品创建走 arkcli-deploy；用户显式要求 raw CRUD / CI / 无守卫的 `infer endpoint create` 走 arkcli-infer-endpoint。候选查询只执行一次 `models search ... --size 10 --format json`，并把实时返回的 `name` 与非空 `primary_version` 组合成可直接传给 `--model` 的完整 ID，不能拉全量清单、把裸家族名当可部署 ID，或逐候选追加 `models get`。注意：查询/管理账号下自传或精调的自定义模型（`cm-xxx`）走 arkcli-custommodel。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -11,14 +11,21 @@ metadata:
 # arkcli models
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与命令选择顺序**
+**CRITICAL — 若模型查询服务于 Endpoint 创建，必须先完成 owning Skill 交接：普通创建先用 Read 读取 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)；显式 raw CRUD / CI / 无守卫创建先用 Read 读取 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)。未读取 owning Skill 前，禁止执行认证检查、模型查询或任何其他命令。**
 **CRITICAL — 所有 `models` 命令在执行之前，务必先用 Read 工具读取其对应的 reference 文档，禁止直接盲目调用命令。**
+
+## 第 -1 步（硬闸门）：先锁定最终任务的 owning Skill
+
+- 先判断用户最终要做的是“查询模型”，还是把模型用于上游任务；不能因为用户提到 `models search` 就把模型查询当成最终任务。
+- 最终目标是 Endpoint 创建时，本 skill 只能作为只读助手，不能成为 owning Skill：普通创建读取并保留 `arkcli-deploy`；显式 raw CRUD / CI / 无守卫创建读取并保留 `arkcli-infer-endpoint`。
+- owning Skill 的查询次数、结果上限、停止点和写入边界高于本 skill 的通用流程。完成交接后按 owning Skill 执行；只有纯模型查询才继续本 skill 的第 0 步和通用命令选择。
 
 ## 使用原则
 
 - 模型相关需求优先使用 `arkcli models ...`
 - 这些命令虽然是标准 CLI 类型，但实现入口仍然来自 `shortcuts/models/`
 - 只有产品命令无法覆盖时，才回退到 [`../arkcli-api-explorer/SKILL.md`](../arkcli-api-explorer/SKILL.md)
-- 本 skill 不是默认兜底入口；用户明确问模型查询、模型资产盘点、模型详情或为上游命令挑选模型时才进入
+- 本 skill 不是默认兜底入口；用户明确问模型查询、模型资产盘点、模型详情时才作为主路由。若是在为上游 `+chat` / `+gen` / Endpoint 创建挑模型，先加载并保留对应上游 skill，本 skill 只提供只读查询。普通 Endpoint 创建的 owning skill 是 `arkcli-deploy`；**显式 raw CRUD / CI / 无守卫的 Endpoint 创建意图必须切换到 `arkcli-infer-endpoint`**，并在查询候选前先加载它
 - **语音模型边界**：TTS / ASR / 播客 / 音色 / 实时语音交互等语音模型在 arkcli 中只支持广场检索与选型说明；`models search` 能搜到不代表可 `+deploy`、可 `+code-example`、可查 `usage` 或可查 `pricing`。除非用户另问官方文档，不要主动给控制台 / OpenAPI / SDK 等非 arkcli 接入步骤或链接。
 
 ## 适用场景
@@ -32,7 +39,7 @@ metadata:
 
 ## 反唤起信号
 
-- 用户只是要直接对话、生成图片/视频或部署 Endpoint：先转对应 skill，只在缺模型名时回来查模型
+- 用户只是要直接对话、生成图片/视频或部署 Endpoint：先转对应 skill；缺模型名时可调用本 skill 查询，但不能替代原任务的主路由。Endpoint 普通创建转 `arkcli-deploy`；只有用户显式指定 raw CRUD / CI / 无守卫创建时转 `arkcli-infer-endpoint`
 - 用户明确要求调用原始 Action、列出 OpenAPI 或构造底层 params：转 `arkcli-api-explorer`
 - 用户问自己的 Endpoint 为什么慢：转 `arkcli-doctor`；公共榜单不能用于 Endpoint 诊断
 - 用户是鉴权、profile、region、base URL 排障：转 `arkcli-auth` 或 `arkcli-config`
@@ -49,6 +56,15 @@ metadata:
 - **例外**：语音模型查询本身就是终点。查到 `doubao-seed-tts-*`、`doubao-seed-asr-*`、`seedasr-*`、播客、音色设计、实时语音交互等广场语音模型后，停在"可搜到但 arkcli 不支持调用/部署/示例/用量/费用"说明，不继续交给 `+deploy` / `+code-example` / `usage` / `pricing` / `onboard`，也不主动补非 arkcli 接入路径。
 
 ## 快速决策
+
+### 精确模型的 API capability 排障
+
+用户已给出完整模型 ID，并要求核对 `Responses API` 等某个 API capability 时，这是「单模型事实核对」，不是候选搜索：
+
+- 必须用 `arkcli models get <model-id> --format json`，读取完整 `api_support`。
+- 禁止用 `models search` 代替；search 是候选发现和重排视图，不是精确模型 API 支持度的最终事实源。
+- 在 `api_support` 数组中按 `name` / `key` / `path` 定位目标 API，只按该项 `supported` 下结论；项缺失时报告元数据不足。
+- 如果实际错误是 access 问题，查询后回到原 owning Skill（如 `arkcli-chat`）解释「模型声明支持」与「当前 Endpoint / 账号可访问」是两层事实；不用真实调用反复试错。
 
 ### 第 0 步（硬闸门）：先读场景表，再选命令
 
@@ -84,7 +100,7 @@ metadata:
 - 用户问"我的模型"、"自定义模型"、"最近创建了多少"、"列出来"、"统计数量"：这是模型资产盘点，不是找候选模型；先读 [`references/arkcli-models-list.md`](references/arkcli-models-list.md)，用 `arkcli models list --page-all` 拉取后做客户端过滤，不要跳到 Raw API Explorer
 - **仅 Volc**：性能排行、趋势或输入长度对比时，先读 [`references/arkcli-models-performance.md`](references/arkcli-models-performance.md)，再使用 `models performance rank`、`trend` 或 `input-length`
 - 已经有明确模型 ID：用 `get`
-- 只是为 `+chat` / `+gen` / `+deploy` 找模型：查到后立即回原任务
+- 只是为 `+chat` / `+gen` / Endpoint 创建找模型：先保留原任务的 owning skill，再只执行一次有界 `models search <keyword> --size 10 --format json`（无关键词时省略 `<keyword>`），从同一次结果形成精简选择列表后立即回原任务；不要改用 `list --page-all`，也不要逐候选循环 `models get`
 - 用户**主动**要开通某个基础模型（"先把 doubao-seed-1-6-flash 开通好"、"我想试用 fast-infer 子服务"、"先预览开通请求"）：用 `activate`，先读 [`references/arkcli-models-activate.md`](references/arkcli-models-activate.md)；如果用户只是要 deploy / 创建端点，由 deploy / infer-create 自行触发隐式开通即可，不要先单独 activate
 
 ## Agent 快速执行顺序

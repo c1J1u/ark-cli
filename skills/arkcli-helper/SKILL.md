@@ -1,6 +1,6 @@
 ---
 name: arkcli-helper
-version: 1.1.3
+version: 1.1.4
 description: "arkcli helper：为 Claude Code / Codex / OpenCode / OpenClaw / Hermes / ZCode 配置火山方舟 Plan 或 Platform Endpoint 的 model/provider，或给支持的 Agent（含 MCP-only Trae）配置 Harness 工具。真人 TTY 运行 `arkcli helper` 可选择模型和 Harness 能力；`helper mcp` 默认保持整组 Agent Plan MCP 行为，传 `--capability datapro|web-search|agent-memory` 只配单项，传 `--capability cua` 只给目标 Agent 安装云电脑 Skill；连 model/provider 一起配置用 `helper configure`，查状态用 `helper list`，移除用 `helper reset`。Agent Plan / Team 还支持专业数据集、豆包搜索、Agent 记忆、AI Native 应用开发底座、Agent 进化与 routing.v1 强制检索路由；上下文出现 ARKCLI ROUTING ENFORCEMENT / routing.v1，或用户要求在豆包搜索、DataPro、OpenViking、Supabase 之间强制分流时也使用本 Skill：调用这四类受管 Provider 前先提交 Route Plan，再调用唯一授权 Provider；原生 WebSearch/WebFetch/WebExtract 位于路由管理范围之外。Platform 只允许本人创建、Running、已验证为文本输出的 Endpoint，不配置 MCP、Supabase 或强制路由。豆包搜索配置成功后默认关闭目标客户端原生 WebSearch；传 `--keep-native-websearch` 可保留，并可用 `helper reset` 完整恢复 ArkCLI 配置。"
 metadata:
   requires:
@@ -193,7 +193,7 @@ arkcli helper configure codex \
 
 ## 前提
 
-- **必须有 Agent Plan 订阅**(豆包搜索 / dataPro 要 Agent Plan 的 key;OpenViking 两台是个人版专属)。命令自动定位账号下的 Agent Plan profile,**与当前 active profile 无关**;个人版 `agent-plan` 与团队版 `agent-plan-team` 都能注入,但**两者不等价**:个人版注入四台,**团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台**。没有就引导 `arkcli auth login` 开通;账号同时有多个 Agent Plan profile(如个人版 + 团队版)时让用户用 `--profile` 指定。
+- **必须有 Agent Plan 订阅**(豆包搜索 / dataPro 要 Agent Plan 的 key;OpenViking 两台是个人版专属)。命令自动定位账号下的 Agent Plan profile,**与当前 active profile 无关**;个人版 `agent-plan` 与团队版 `agent-plan-team` 都能注入,但**两者不等价**:个人版注入四台,**团队版 `agent-plan-team` 与 OpenViking 无关,只注入豆包搜索 + dataPro 两台**。没有就引导 `arkcli auth login` 开通;账号同时有多个 Agent Plan profile(如个人版 + 团队版)时，命令会列出本次检测到的 profile name；使用宿主提供的结构化选择能力让用户选一个，选定后带 `--profile <name>` 重跑，不得擅自偏向个人版、团队版或 active profile。
 - 注入后 **agent 需重启**才会加载新 MCP。Codex profile 模式还需用 `codex --profile <name>` 启动;Trae 还需去「设置 → MCP」面板确认 MCP 已启用(项目级文件额外要开「启用项目级 MCP」开关)，并在 `Settings > Hooks` 启用当前项目后重开项目。
 
 ## OpenViking 库的选择(openviking-dataplane 专属;**仅个人版 agent-plan**)
@@ -204,7 +204,7 @@ arkcli helper configure codex \
 
 - **0 个库** → 自动跳过 openviking-dataplane(仍注入另三台,包括 openviking-controlplane),并提示去 `https://console.volcengine.com/vikingdb/openviking/region:openviking+cn-beijing/create` 建库后重跑。可直接接受跳过。
 - **1 个库** → 直接用,无需选择。
-- **多个库** → 命令报错并列出所有库名(形如 `检测到多个 OpenViking 库,请用 --ov-resource <库名> 指定其一:[a, b, c]`)。**此时用 AskUserQuestion 把这些库名作为选项让用户选**,拿到选定库名后带 `--ov-resource <库名>` 重跑同一条命令。
+- **多个库** → 命令报错并列出所有库名(形如 `检测到多个 OpenViking 库,请用 --ov-resource <库名> 指定其一:[a, b, c]`)。把这次错误中返回的真实库名交给宿主提供的结构化选择能力；不要写死某个宿主工具名，也不要凭记忆补库。拿到选定库名后带 `--ov-resource <库名>` 重跑同一条命令；宿主没有结构化选择能力时退化为精简编号列表。
 - 取 key 失败(非 0 库)→ openviking-dataplane 写占位符 `Bearer <OPENVIKING_KEY>`,提示用户手动替换。
 - `openviking-controlplane` 不受上述影响:个人版只要有 Agent Plan 就始终注入(团队版不注入,见上)。
 

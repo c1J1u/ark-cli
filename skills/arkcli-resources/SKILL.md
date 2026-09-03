@@ -1,7 +1,7 @@
 ---
 name: arkcli-resources
-version: 1.2.0
-description: "arkcli resources 实时控制面查询：列出当前/指定 profile 可见资源及其调用兼容性；把 Endpoint 解析为权威模型、模态与候选工作流。read-only，不写 profile.yaml。用户临时给出 ep-... 但未说明该走 Chat、Understand 还是 Gen 时优先使用。"
+version: 1.2.1
+description: "arkcli resources 实时控制面查询：列出当前/指定 profile 可见资源及其调用兼容性；把 Endpoint 解析为权威模型、模态与候选工作流。read-only，不写 profile.yaml。用户临时给出 ep-... 但未说明该走 Chat、Understand 还是 Gen 时优先使用。反触发：用户已观察到 Endpoint NotFound，并要判断 ID 是否不完整或仅存在于历史用量时，owning skill 必须是 arkcli-infer-endpoint。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -11,6 +11,7 @@ metadata:
 # arkcli resources
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与命令选择顺序**
+**CRITICAL — 用户已经看到 Endpoint NotFound，又要核对当前完整 ID / 历史用量时，必须先转读 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，由其按 `infer endpoint list → usage stats --endpoint` 证据链主导。不得只跑 `resources resolve/list` 就猜测 ID 后缀或宣称已删除。**
 
 ## 使用原则
 
@@ -41,6 +42,7 @@ metadata:
 - 用户要 **创建 endpoint** → 转 [`../arkcli-deploy/SKILL.md`](../arkcli-deploy/SKILL.md)（`arkcli +deploy`）；本轮只做只读核对、复述和确认，不直接执行
 - 用户明确要 **raw CreateEndpoint / CI / 精确请求预览** → 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)，使用 `infer endpoint create --dry-run`
 - 用户要 **管理 endpoint**（start / stop / get / update / list 详情）→ 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)
+- 用户已经拿到 Endpoint NotFound，想判断 ID 是否少尾部或历史上是否存在 → 转 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md)；不要停在 resources 单点解析
 
 ## resources vs models 的区别
 

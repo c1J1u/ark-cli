@@ -1,6 +1,6 @@
 ---
 name: arkcli-custommodel
-version: 1.0.0
+version: 1.0.1
 description: "arkcli 自定义模型仓库管理：从 TOS 导入自定义模型、查询/筛选自定义模型、查看详情、改名、删除、查询可用量化模式、量化已就绪的模型。任何提到自定义模型 ID（`cm-*`）的管理、部署准备，或要求用 `cm-*` 直接对话/推理/试效果的边界判断，都必须使用本 skill。注意：查询火山**公共基础模型**（doubao 等 foundation models）走 arkcli-models；本 skill 只管账号下的自定义模型仓库。"
 metadata:
   requires:
@@ -70,6 +70,18 @@ metadata:
 - `custommodel list --sort-order` 只接受小写 `asc` / `desc`。收到其他值时应把它视为本地参数错误，不要尝试调用接口或改成其他大小写后盲目重试。
 - 使用 `--format table` 或 `--format csv` 时，每个 `result.items[]` 模型是一行；不要把分页响应根对象或 `result` map 当成模型记录。需要保留完整分页元数据时使用 JSON/YAML。
 
+## 部署前的自定义模型目标澄清
+
+仅当用户的最终目标是“把我的自定义模型部署成 Endpoint”、但没有给出唯一 `cm-*` 时执行本节；用户已明确给出 `cm-*` 时跳过。
+
+1. 只执行一条只读查询：`arkcli models custommodel list --mine --statuses ready --page-all --page-delay 500 --format json`。这条候选查询一轮最多执行一次；即使返回认证、配置或网络错误，也不得换一种写法重试或扫描本地配置。
+2. 候选只能来自本轮结构化结果。查询失败、结果字段不完整或无法确认已取全时，停止并原样说明原因；禁止凭记忆补 `cm-*`，也禁止先执行部署。
+3. 按 0 / 1 / N 收敛：
+   - 0 个：停止，提示用户先 upload、量化或完成精调产物导出。
+   - 1 个：复述该模型的 `id / name / foundation_model / create_time`，将它作为唯一目标转交 `arkcli-deploy`。
+   - N 个：使用宿主提供的结构化选择能力，把每个候选的 `id / name / foundation_model / create_time` 直接列给用户选择；不要在通用 Skill 中写死某个宿主的工具名，也不要额外写死 `Other` 选项。
+4. 唯一目标确定前，不执行 `arkcli +deploy`、`arkcli infer endpoint create` 或 Raw API。目标选择完成后转 `arkcli-deploy`，并继续遵守其写操作确认；选择模型本身不等于授权部署。
+
 ## Agent 快速执行顺序
 
 1. 不确定认证状态时，先 `arkcli auth status`
@@ -106,7 +118,8 @@ custommodel get <id>  （确认 status=ready）
 ### 3. 准备给 `+deploy` 当目标
 
 ```
-custommodel list --mine --statuses ready  → 选目标 cm-xxxxx
+custommodel list --mine --statuses ready --page-all --page-delay 500 --format json
+        → 按 0 / 1 / N 澄清唯一 cm-xxxxx
         → +deploy --model cm-xxxxx ...   （若已有 Running Endpoint 会复用；详见 ../arkcli-deploy/SKILL.md）
 ```
 
@@ -124,6 +137,7 @@ custommodel get <id> --transform 'active_endpoints'  （确认无 endpoint 引�
 - 不要在 `upload` 之后立刻 `quantize` —— upload 是异步任务，status 经历 `preparation → processing → ready`；先 `custommodel get <id>` 确认 ready，再走 `available-quantizations` → `quantize`
 - 不要给 `quantize` 传一个 `available-quantizations` 没列的 mode —— 不同 base model 支持的量化集合不同，盲传必失败。先 `available-quantizations <id>`，从返回里挑
 - 不要把 `cm-xxxxx` 直接传给 `+chat` / `+gen` 的 `--model` —— 自定义模型必须先通过 `+deploy` 获得 endpoint（`ep-xxx`）才能推理调用；`+deploy` 可能复用已有 Running Endpoint
+- 不要在多个 ready 自定义模型中自行挑一个部署 —— 先按“部署前的自定义模型目标澄清”让用户从本轮实时结果中选择
 - 不要为了自动化主动补 `--yes` —— 没 `--yes` 时 CLI 会走 [Y/N] 二确；只有用户已经确认删除 `cm-xxxxx` 且知道 endpoint 引用风险时才带
 - 不要在 "我的" 语义下走 shared 的 Tags 客户端过滤 —— `custommodel list --mine` 是服务端原生过滤，更准也更省请求
 - 不要密集刷 `get` 来轮询 status —— 推荐间隔 ≥ 10s，否则会被限流

@@ -5,8 +5,8 @@
 用户说“创建一个 XXX agent / 智能体”时按下面链路执行，不要只拼一个 `agent create`。
 
 1. `arkcli auth status --format json`，确认登录、profile、project、API key。
-2. 如果用户没有给精确模型，先按用户意图增强模型白名单：`arkcli agent model list --query "<用户意图/领域>" --primary-only --format json`。它以 ArkModels 中 `agent_support=true` 的 Managed Agent 白名单为候选集合，再用模型目录 / `models search` 的能力、上下文、模态、排序信号补充 `detail` 字段并把命中项排前；把返回的 `items[].model` 原样作为 `--model`。
-3. 把用户意图扩展成 skill 选择上下文。例：数据分析 -> `数据分析 Excel CSV 表格 BI SQL`；代码助手 -> `代码 编程 repo bash`；文档写作 -> `文档 写作 总结 Markdown`。
+2. 如果用户没有给精确模型，先按用户意图增强模型白名单：`arkcli agent model list --query "<用户意图/领域>" --primary-only --format json`。它以 ArkModels 中 `agent_support=true` 的 Managed Agent 白名单为候选集合，再用模型目录 / `models search` 的能力、上下文、模态、排序信号补充 `detail` 字段并把命中项排前；把返回的 `items[].model` 原样作为 `--model`。随后必须先完成 0/1/N 分支：0 个候选时报告无候选并停下；1 个候选时复述其 ID 后才进入步骤 3；多个候选时展示真实候选并**立即结束当前回合**，用户选定前禁止执行步骤 3 及后续步骤。
+3. 模型已经唯一确定后，才把用户意图扩展成 skill 选择上下文。例：数据分析 -> `数据分析 Excel CSV 表格 BI SQL`；代码助手 -> `代码 编程 repo bash`；文档写作 -> `文档 写作 总结 Markdown`。
 4. 创建 Agent 默认优先从本账号已有 custom skill 中选择，即使用户没有显式说“使用 custom skill”：按需执行 `arkcli agent skill list --source custom --limit 100 --format json`。由 AI agent 读取这一页全部 `Items`，按名称、描述、能力和版本判断；没有合适候选时，将响应中的 `NextPage` 原样传给 `--page` 继续拉下一页，直到命中或没有下一页。不要只调用 `search --source custom "<query>"` 后选第一条；用户明确要求完整清单或需要离线分析时才使用 `--page-all`。
 5. custom skill 分页查完仍没有合适候选，或用户明确要求 market/SkillHub skill 时，再搜索：`arkcli agent skill search "<query>" --limit 10 --format json`。根据名称、描述、能力标签、版本选择 skill。不要臆造 `SkillId`；搜不到时可创建基础 agent，并说明未找到匹配 skill。
 6. 组装参数：默认 speed `standard`，补领域化 system prompt，挂相关 skill。线上测试资源名使用 `arkcli` 前缀；用户没给名字时生成 `arkcli-<domain>-agent-<YYYYMMDDHHMMSS>`，如 `arkcli-data-agent-20260707153000`。
@@ -16,7 +16,7 @@
 9. 真实创建后立刻 `agent agent get <agent-id> --format json` 确认落库。对用户回显时必须展示服务端最终配置，不要只展示“已创建”或单独摘要某个字段。
 10. 用户要求端到端验证时，再创建 env/session，发送一条最小消息，拉 events/thread/resources。除非用户明确要求清理，不要删除创建出的资源。
 
-模型候选、skill 候选、MCP provider 候选互不依赖；创建前可以并行查：
+只有模型已经由用户明确给出，或白名单过滤后唯一确定时，skill 与 MCP provider 候选才可以并行查。模型仍有多个候选时不得运行下面的 Skill/MCP 查询，也不得用 `agent agent create --help`、preview 或参数准备来提前推进创建流程：
 
 ```bash
 arkcli agent model list --primary-only --format json
@@ -47,7 +47,9 @@ arkcli agent model list --primary-only --format json
 
 - 默认只从 `agent_support=true` 的结果里选；`agent model list` 默认已经过滤非 Agent 模型。
 - 优先选 `primary_version=true` 的条目；同名多版本时不要跨条目混拼。
-- 创建时传返回的 `model` 字段，例如 `items[0].model`，不要传返回里的 `id`。
+- 创建时传用户最终选中条目的 `model` 字段，不要传返回里的 `id`，也不要把列表第一项当成默认选择。
+- 先只按用户明确给出的模型族、模态、上下文长度、能力等硬约束，以及 `agent_support`、`primary_version` 等产品 eligibility 字段过滤。查询排序、展示顺序、`router_baseline_support` 或 Agent 对“性能更强 / 更合适”的主观判断都不能把多个候选变成唯一候选。
+- 过滤后只有 1 个候选时复述其 `model` 后继续；只要硬约束过滤后仍有多个候选，就必须使用宿主结构化选择能力展示本轮结果中实际存在的 `model`、`name/display_name`、`version`、`context_window`、`capabilities`、`lifecycle_status/status` 等区分字段，并停在模型选择阶段。候选输出就是当前回合的最终输出，之后不再调用任何工具。可以标注推荐项和依据，但用户选定前不得继续查询 Agent Skill/MCP，不得查看创建命令的 `--help`，也不得执行 `agent create/update`、`+new-agent`、`+iterate` 或它们的 `--dry-run`。不要从模型记忆补选项；宿主没有结构化选择能力时退化为精简编号列表。
 - 用户明确要求某个模型族时，用 `--name <keyword>` 缩小 Agent 白名单范围；有自然语言意图时仍优先加 `--query`：
 
 ```bash
@@ -77,7 +79,7 @@ arkcli +new-agent --fork agent-xxx --format json
 ```
 
 - 用户明确给了源 `agent-id` 但没给新名字时，不要停下来只问名字；CLI 会先 `GetAgent`，默认用源 Agent 的 `Name` 加 `copy-` 前缀，即 `copy-<source-agent-name>`。如果源 name 为空，才 fallback 到 `copy-<agent-id-tail>`。
-- 如果用户只说“复制那个数据分析 agent”但没给 ID，先用 `agent agent list --name <keyword>` 查候选；候选唯一时可继续复制，候选多个时必须让用户确认准确 `agent-id`。
+- 如果用户只说“复制那个数据分析 agent”但没给 ID，先用 `agent agent list --name <keyword>` 查候选；候选唯一时可继续复制，候选多个时使用宿主结构化选择能力展示本轮结果中的 `Id`、`Name`、`Description`、`UpdatedAt/UpdateTime`，拿到准确 `agent-id` 后再继续。
 - `+new-agent --fork` 需要在线读取源 Agent，无法提供纯本地 Client Preview，因而不注册 `--dry-run`。先用 `agent agent get <id>` 核对源配置，复述覆盖项并取得确认后执行复制。
 - `--fork` / `--from` 会先 `GetAgent`，复制源 Agent 的 `Model`、`System`、`Description`、`Tools`、`Skills`、`McpServers`、`Multiagent`、`Metadata`、`Tags`，再调用 `CreateAgent` 创建新 Agent。
 - `--name` 可显式覆盖默认复制名。
@@ -159,7 +161,7 @@ arkcli agent agent list --page <NextPage> --limit 50 --format json
 arkcli agent agent list --name <keyword> --limit 20 --format json
 ```
 
-- 如果筛出多个候选，不要臆造选择；列出候选的 `Id`、`Name`、`Description`、`UpdatedAt/UpdateTime` 让用户确认。
+- 如果筛出多个候选，不要臆造选择；使用宿主结构化选择能力展示本轮结果中的 `Id`、`Name`、`Description`、`UpdatedAt/UpdateTime`，宿主不支持时才退化为精简编号列表。用户选定后直接复用该 `Id`，不要为同一批候选重新查询。
 - 用户要“复制某个 agent”但没给 ID 时，先通过 `list --name/--ids` 或候选确认拿到准确 ID，再走 `+new-agent --fork <agent-id>`。
 
 ## 默认 Agent 工具

@@ -73,6 +73,35 @@ arkcli gen delete tsk_xxxxx --yes
 - 仅当 `output_url` 非空（即任务已 `succeeded`）才下载；`running` / `queued` / `failed` 是 no-op，不落盘也不回带 `local_path`。
 - 下载失败只在 stderr 打 warn，不影响 `gen get` 的状态输出（产物 URL 仍在 `output_url` 里，可手动重试）。
 
+#### shell 轮询：先禁下载查 phase，成功后只下载一次
+
+```bash
+while :; do
+  RESULT=$(arkcli gen get "$TASK_ID" --save-to="" --format json) || exit 1
+  PHASE=$(printf '%s' "$RESULT" | jq -r '.status.phase // empty')
+
+  case "$PHASE" in
+    succeeded)
+      arkcli gen get "$TASK_ID" --save-to "$SAVE_TO" --format json
+      break
+      ;;
+    failed|cancelled)
+      printf '%s\n' "$RESULT" | jq -r '.status.message // .error // "generation task failed"' >&2
+      break
+      ;;
+    queued|running)
+      sleep "$POLL_INTERVAL"
+      ;;
+    *)
+      printf 'unknown generation task phase: %s\n' "$PHASE" >&2
+      break
+      ;;
+  esac
+done
+```
+
+这个形态避免在每次轮询时触发自动下载；也避免直接读 `.status` 导致终态永远匹配不上。脚本只管已有 task，不应在任何分支重新提交 `+gen`。
+
 ### gen list
 
 | flag | 说明 |
@@ -99,7 +128,7 @@ arkcli gen delete tsk_xxxxx --yes
 
 ## 输出形态
 
-- `gen get` 复用 `+gen` 的 `VideoTask` 结构：`{id, model, status, output_url, ratio, resolution, duration, ...}`；任务 `succeeded` 且自动下载成功时额外回带 `local_path`（落盘的绝对路径，`--save-to=""` 或未 succeeded 时该字段缺省）。
+- `gen get` 复用 `+gen` 的 `VideoTask` 结构：`{id, model, status: {phase, message}, output_url, ratio, resolution, duration, ...}`；任务 `status.phase == "succeeded"` 且自动下载成功时额外回带 `local_path`（落盘的绝对路径，`--save-to=""` 或未 succeeded 时该字段缺省）。
 - `gen list` 返回 `{total: <int>, items: [<item>, ...]}`；每个 `item` 是 SDK 列表 item 的原始 JSON 形态，**注意以下 3 处与 `gen get` 的差异**：
   - 错误字段叫 `failure_reason`，不是 `error`
   - **不含 `resolution` / `ratio` / `duration`**（要拿这些字段需要再调一次 `gen get`）
@@ -112,7 +141,7 @@ arkcli gen delete tsk_xxxxx --yes
 |---|---|
 | `gen get` / `gen delete` 报 `missing task id` | positional arg 没传 |
 | `gen list` 返回空 `items[]` | filter 太严，或当前账户下确实没任务 |
-| `gen get` 拿不到 `output_url` | 任务还在 `running` / `queued`；看 `status` 字段 |
+| `gen get` 拿不到 `output_url` | 任务还在 `running` / `queued`；看 `status.phase` 字段 |
 | 把图片任务返回的 ID 拿过来 `gen get` 报 not found | 图片走同步端点不是 task list，用法错位 |
 
 ## 与 raw API 的关系

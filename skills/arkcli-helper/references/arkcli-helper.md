@@ -79,7 +79,7 @@ openviking-dataplane 的 `Authorization: Bearer <key>` 绑定到具体 OpenVikin
 - 0 库 → 跳过 openviking-dataplane(另三台包括 openviking-controlplane 照常注入)+ 引导 create URL。
 - 1 库 → 直接用。
 - 多库 + 给了 `--ov-resource` → 按库名(或 ResourceID)精确匹配;未命中 → 报错列出可选库名。
-- 多库 + 没给 → 报错列出所有库名(skill 据此 AskUserQuestion 选库后带 `--ov-resource` 重跑;`arkcli helper` 出 TTY picker)。
+- 多库 + 没给 → 报错列出所有库名；skill 只把本次错误返回的真实库名交给宿主结构化选择能力，选定后带 `--ov-resource` 重跑（不写死任何宿主工具名，不凭记忆补库；无结构化选择能力时用精简编号列表）；`arkcli helper` 出 TTY picker。
 
 选定库后 `AccessOpenVikingApiKey(ResourceID, UserID=default, Project=库的 Project)` 取库 key;失败 → 写占位符。
 
@@ -178,7 +178,7 @@ ZCode 主进程、重新打开并新建会话；只切换模型或继续使用�
 | `检测到多个 Agent Plan profile` | 多个 agent-plan profile | 加 `--profile <名>` 指定 |
 | `profile X 不是 Agent Plan` | `--profile` 指了非 Agent Plan(agent-plan / agent-plan-team 之外) | 换成 Agent Plan profile |
 | 豆包搜索(web-search)写了占位符 | plan profile 无可用 API Key | `arkcli auth apikey` 选一把,或 `arkcli profile keys refresh` 刷新后重跑 |
-| `检测到多个 OpenViking 库` | 账号多个 OpenViking 库且没指定 | 加 `--ov-resource <库名>`(skill 用 AskUserQuestion 让用户选库) |
+| `检测到多个 OpenViking 库` | 账号多个 OpenViking 库且没指定 | 使用宿主结构化选择能力展示本次错误返回的库名；选定后加 `--ov-resource <库名>` 重跑 |
 | 跳过了 openviking-dataplane(个人版) | 个人版账号下 0 个 OpenViking 库 | 去 create URL 建库后重跑;或接受跳过(另三台含 openviking-controlplane 已注入)。注:**团队版本就不注入 OV**,不会出现这条 |
 | openviking-dataplane 写了占位符 | OpenViking 列库 / 取 key 失败 | 手动填 `Authorization: Bearer <真实 key>`,或重跑 |
 | 注入了但 agent 里没生效 | MCP 在 agent 启动时加载 | 重启该 agent |

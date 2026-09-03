@@ -1,7 +1,7 @@
 ---
 name: arkcli-deploy
-version: 1.4.4
-description: "arkcli +deploy：创建推理接入点（Endpoint）的统一首选入口 —— **用户说『创建/新建/create 一个 endpoint/接入点』或『部署/上线/deploy 某模型』，只要意图是新建一个接入点，一律优先走这里，不要走 arkcli-infer-endpoint 的 create**。当用户需要把模型部署成在线推理接入点时使用。注意：要对**已有** Endpoint 做获取/列表/启停/更新等全生命周期管理，才走 arkcli-infer-endpoint；本 skill 只负责一键创建（创建外的增删改查不在此）。创建成功后会自动把多语言调用示例渲染到 ./ark-examples/<ep-id>/。反触发：TTS/ASR/语音模型不能 +deploy，只能转 models search 说明广场可搜但 arkcli 不支持 Endpoint 创建。"
+version: 1.4.9
+description: "arkcli +deploy：普通创建推理接入点（Endpoint）的统一首选入口。用户说『创建/新建/create 一个 endpoint/接入点』或『部署/上线/deploy 某模型』时优先走这里；**但脚本化 / CI / 无护栏 / 原始 raw CRUD 创建是唯一例外，必须改走 `arkcli-infer-endpoint`，不能由本 skill 截获**。只有不命中该例外的普通创建，才在模型尚未选择、只给品牌/家族名，或当前轮只查询候选时进入本 skill 完成模型澄清；候选要用实时 search 返回的 `name` 与 `primary_version` 组合成可直接传给 `--model` 的完整 ID。对**已有** Endpoint 做获取/列表/启停/更新等全生命周期管理也走 arkcli-infer-endpoint；本 skill 只负责带产品护栏的一键创建。创建成功后会自动把多语言调用示例渲染到 ./ark-examples/<ep-id>/。反触发：TTS/ASR/语音模型不能 +deploy，只能转 models search 说明广场可搜但 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -9,6 +9,8 @@ metadata:
 ---
 
 # arkcli +deploy
+
+**CRITICAL — 路由例外必须先于任何命令：用户明确要求脚本化 / CI / 无护栏 / 原始 raw CRUD 创建 Endpoint 时，立即读取 [`../arkcli-infer-endpoint/SKILL.md`](../arkcli-infer-endpoint/SKILL.md) 并由它接管；在完成交接前禁止认证检查、模型查询或其他命令。**
 
 **前置：** 先用 Read 读 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 获取共享认证/配置/写操作守卫规则。
 
@@ -49,8 +51,28 @@ metadata:
 - 模型未开通时 `+deploy` 的开通在**非 TTY 下被硬拒、`--yes` 也不放行**；**禁止自己补 `--yes` / `echo Y` / 设 `ARKCLI_ALLOW_HEADLESS_ACTIVATION`**，必须把开通（计费）交还真人在终端 / console 处理
 - 语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互）广场可搜不等于可部署；命中这类模型时停在 `arkcli models search <keyword>`，不要给 `+deploy` 命令
 
+## 创建意图中的模型澄清
+
+只要用户的最终目标仍是“创建 / 新建 / 部署 Endpoint”，即使尚未给出完整模型 ID，也必须留在 `arkcli-deploy` 工作流；`arkcli-models` 此时只是临时调用的只读候选查询能力，不能把创建任务改路由成纯模型发现。
+
+候选必须来自**本轮** ArkCLI 的实时结构化输出，禁止从模型记忆、示例或旧版本号补全。
+
+**查询预算是当前用户回合恰好一次 Bash 调用。** 在执行前一次性确定 keyword、过滤条件和 `--size`。`models search` 的 keyword 是单个 catalog 子串，不要把多个概念拼成带空格的短语：先选最能缩小范围的一个 ASCII token，其余条件放到同一次调用的 flags 或 `jq` 本地过滤。例如“豆包代码模型”用 keyword `code`，再在同一管道按 `name` 的 `doubao|seed` 过滤；“生图”用 `seedream`。不确定稳定 token 时宁可省略 keyword 并使用已有结构化 filter，禁止把未翻译的中文短语直接提交后再换词重试。若担心输出过长，把字段投影直接放进同一条管道，例如
+`arkcli models search "<keyword>" --size 0 --format json | jq -c '{items: [(.items // [])[] | {name, primary_version, lifecycle_status, input_modalities, output_modalities}]}'`。
+这次调用无论成功、空结果、截断还是失败，都不得换关键词、调大分页、重跑同一命令或为了重新格式化再调用一次 ArkCLI；只能使用已捕获的 stdout，信息不足就如实停止。
+
+1. **完全没给模型**：执行一次有界查询，例如 `arkcli models search --size 10 --format json`。若用户已说明用途或模态，把对应的 keyword / `--modality` 加进同一次查询。
+2. **只给品牌、系列或家族名**（例如 “Doubao”“Seed 2”）：执行一次 `arkcli models search <keyword> --size 10 --format json`；家族名不是可直接传给 `--model` 的完整 ID。
+3. 从同一次返回的 `items` 中读取 `name`、`primary_version`、`lifecycle_status` 和模态等已有字段。优先保留 `lifecycle_status=Published` 且名称不含 `internal` / `test` 的候选；状态缺失或非 Published 时只能如实标为未核实，不能称为“可部署”。完整模型 ID 按模型查询契约确定：`primary_version` 非空时使用返回值精确拼成 `<name>-<primary_version>`，为空时才使用 `<name>`；这是结构化字段组合，不是从名称或日期规律猜版本。不要自行给 `name` 拼 `pro`、`lite` 或任何未返回的版本后缀。
+4. **0 个可用候选**：说明本轮没有查到，并请用户补充用途、模态或关键词；不要猜一个继续。
+5. **1 个可用候选**：复述本轮返回的完整 ID，请用户确认；若用户已要求本轮只查询，则停在这里。
+6. **多个可用候选**：列出精简候选及完整 ID，请用户明确选择；若候选仍过多，按用户用途缩小范围，不能擅自选第一项。
+
+澄清阶段的收敛边界：本回合第一次 `search` 返回后，**禁止再次执行 `models search`，也不要对候选循环执行 `models get`、价格查询或其他详情调用**。只有用户选定单个候选后又明确要求比较某个缺失属性，才在后续回合追加一次针对性查询。模型尚未唯一确定前，禁止执行 `+deploy`、`infer endpoint create` 或 Raw API 创建。
+
 ## 路由判断
 
+- 用户要创建 / 部署 Endpoint，但模型缺失或只有品牌 / 家族名 → **仍路由到本 `arkcli-deploy` skill**，按上节执行一次实时只读查询并让用户选择；不要直接创建
 - 用户已有模型 ID + 想正式部署 → 复述 `model/name/region`；确认后执行 `arkcli +deploy --name <ep> --model <id>`
 - 用户要部署 / 接入语音模型，或模型名看起来是 `*-tts-*` / `*-asr-*` / `seedasr-*` → 转 [`arkcli-models`](../arkcli-models/SKILL.md) 说明"只支持广场检索，不支持 Endpoint 创建"
 - 用户传入自定义模型 ID（`cm-xxxxx`）时，真实创建前会先查是否已有引用该自定义模型且状态为 `Running` 的 Endpoint；若有则直接复用并输出已有 `endpoint-id`，不会再创建第二个计费资源。该在线复用决策也是 `+deploy` 无法提供可靠离线 Client Preview 的原因之一
@@ -63,7 +85,7 @@ metadata:
 |---------|--------|------------|
 | 只想试模型效果 / 一次性生成 | `arkcli-chat` / `arkcli-gen` | `arkcli +chat --model <id> '...'` 或 `arkcli +gen --model <id> '...'` |
 | 要某模型的调用示例 | `arkcli-code-example` | `arkcli +code-example --model <model-id> --language python`（按模型名/版本生成；缺失版本降级到静态示例或控制台示例页） |
-| 模型 ID 未定 | `arkcli-models` | `arkcli models search <keyword>` 或 `arkcli models list` |
+| 只想发现 / 对比模型，尚无创建 Endpoint 意图 | `arkcli-models` | `arkcli models search <keyword>` 或 `arkcli models list` |
 | 语音模型部署 / TTS 接入点 / ASR Endpoint | `arkcli-models` | `arkcli models search <keyword>`（只做广场发现；当前不支持 Endpoint 创建） |
 | 401 / 鉴权失败 | `arkcli-auth` | `arkcli auth status`，必要时 `arkcli auth login` |
 | profile / region / project 不符预期 | `arkcli-config` | `arkcli profile show --format json` (旧 `arkcli config show` 已 deprecated) |

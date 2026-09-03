@@ -1,5 +1,7 @@
 # usage plan-details
 
+> **硬边界：本命令仅支持 `agent-plan` / `agent-plan-team`。Coding Plan 问题不得调本命令，也不得改跑 `usage stats` 后把 platform / Endpoint Token 统计表述成 Coding Plan 套餐明细；只能用 `arkcli usage plan --product coding-plan`（团队版用 `--product coding-plan-team`）返回 quota 快照，并向用户说明当前没有按模型时序明细能力。**
+
 > **前置条件：** 先阅读 [`../arkcli-shared/SKILL.md`](../../arkcli-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
 > **跟 `usage plan` / `usage stats` 的关系（务必先看）：**

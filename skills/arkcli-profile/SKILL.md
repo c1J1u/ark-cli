@@ -1,7 +1,7 @@
 ---
 name: arkcli-profile
-version: 1.1.1
-description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理五类 profile 的默认资源与持久身份切面。临时 API Key/Base URL/Endpoint 调用不写回 profile，按 arkcli-shared 的 execution-context 契约执行。旧 config 子命令已 deprecated。"
+version: 1.1.3
+description: "arkcli profile 切面管理：列出、查看、新建、切换、删除、重命名 profile；管理 profile 内 API Key 列表；管理五类 profile 的默认资源与持久身份切面。也负责判断 Token 额度包/资源包应继续使用 platform profile 与 `/api/v3`，不能因「套餐」或价格字样误判为 Agent Plan/Coding Plan。临时 API Key/Base URL/Endpoint 调用不写回 profile，按 arkcli-shared 的 execution-context 契约执行。旧 config 子命令已 deprecated。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -38,6 +38,21 @@ metadata:
 - 用户问"有哪些 endpoint / 模型可用" → 转 [`../arkcli-resources/SKILL.md`](../arkcli-resources/SKILL.md)
 - 用户问"我要找一个模型" / "哪个模型最强" → 转 [`../arkcli-models/SKILL.md`](../arkcli-models/SKILL.md)
 
+## 切换 profile 的硬状态机
+
+1. 执行 `profile use` 前必须先跑一次 `arkcli profile list --format json`；只有本轮已有完整、未截断的同源列表时可复用，不凭记忆认定目标存在。
+2. `profile list` 的结构化 stdout 是本地 profile 的唯一事实源；列表为空就报告未配置并停止，不再搜索文件系统、读取状态目录或猜测配置文件。用户给了精确名称时只做精确匹配；名称不存在就如实说明，并只从列表真实结果提供可用 profile。不得把该名称重解释为 project / region，也不得自动 `project` / `create` / `rename`。
+3. 用户只给了 type、用途或模糊描述时，只用列表里的 `name / type / region / project` 等权威字段筛选，然后严格按 [`arkcli-shared`](../arkcli-shared/SKILL.md) 的 0 / 1 / N 候选规则消歧；用户选定前不执行写操作。
+4. 目标唯一且用户意图明确后才执行 `arkcli profile use <name>`，随后必须跑 `arkcli profile show --format json` 验证实际 active profile。
+5. 只有核验结果与目标一致才声称切换成功；报告 `name / type / region / project / base_url` 这些生效切面，不把 `profile use` 的 exit=0 当成最终证据。
+
+## 切换默认资源的硬状态机
+
+1. 用户没给具体资源 ID 时，先确定 modality，再只跑一次 `arkcli resources list --modality <m> --format json` 取得当前或 `--profile` 指定切面的完整候选。
+2. 候选只能来自这次真实结果，按 [`arkcli-shared`](../arkcli-shared/SKILL.md) 的 0 / 1 / N 规则处理：多候选优先调用宿主的结构化选择能力，通用 Skill 不写死工具名。
+3. 执行前复述目标 profile、modality 和精确 ID；使用 `arkcli profile set-default --modality <m> <id>` 的默认 inline verify。除非用户明确要求并接受跳过校验的风险，不得自行添加 `--skip-verify`。
+4. 写入后必须跑 `arkcli profile show --format json` 或 `arkcli resources list --modality <m> --format json` 核验新 default；只有结构化结果与目标 ID 一致才声称切换成功。
+
 ## --profile flag 的精确语义（0.1.16 修正）
 
 ```
@@ -55,13 +70,22 @@ Agent 行为约定：
 
 1. 不确定当前 active profile → `arkcli profile show --format json`
 2. 不确定有哪些 profile → `arkcli profile list --format json`
-3. 用户要切默认 profile → `arkcli profile use <name>`（无 `<name>` 时会弹 promptui）
+3. 用户要切默认 profile → 按上面的硬状态机先 `profile list`，精确定位后 `profile use <name>`，再 `profile show`
 4. 用户要新建 profile：先问清楚 type（platform / agent-plan / coding-plan）→ `arkcli profile create --type ... --set-default`
 5. 用户问 default 模型是什么 → plan 类用 `arkcli profile models list`，platform 用 `arkcli profile show` 看 `resources` 字段
-6. 用户要换 default 资源 → `arkcli profile set-default --modality <m> <id>`（默认 inline verify <id> ∈ 可用列表，加 `--skip-verify` 强写）
+6. 用户要换 default 资源 → 按上面的硬状态机取真实候选、消歧、`profile set-default`，再只读核验
 7. 用户的 default API Key 报错 / key 列表过期 → `arkcli profile keys refresh`，然后 `arkcli profile keys list --format json` 看新清单
 8. 用户要选别的 key 作 default → `arkcli profile keys use <api-key>`（必须 ∈ `profile.available_api_keys`）
 9. 用户要换 active project（不重登）→ `arkcli profile project`（无参拉真实 ListProjects 交互选；先复述「会把 platform profile 重命名/重派生到新 project，个人版 plan profile 保留」并确认）
+
+## Token 额度包 / 资源包的 profile 归属
+
+「19 元 Token 额度包」、「Token 资源包」、「预付费 Token 抵扣包」等产品仍属于标准 platform 按量调用的计费产品，不是 Agent Plan 或 Coding Plan 订阅身份：
+
+- 应沿用 `type=platform` 的 profile，数据面使用 platform `/api/v3`。
+- 价格、「额度包 / 套餐」市场名称、Token 数量都不是 ProfileType 判据；只有明确的 Agent Plan / Coding Plan 订阅或团队席位才使用对应 plan profile。
+- 用户只问「它属于哪类 profile」时直接解释分类，禁止自动执行 `profile create` / `profile use` / `profile set-default`。
+- 用户要实际使用时，先用 `arkcli profile show --format json` 只读核对当前是否为 platform；需要修改时再按本 skill 的写操作确认契约执行。
 
 ## 命令一览
 

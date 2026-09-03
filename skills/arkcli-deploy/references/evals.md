@@ -1,6 +1,6 @@
 # arkcli-deploy 最小评估用例
 
-目标：验证本 skill 在「该唤起 / 写操作守卫 / 3 类反触发」上行为稳定，并防止常见幻觉。
+目标：验证本 skill 在「该唤起 / 模型意图澄清 / 写操作守卫 / 反触发」上行为稳定，并防止常见幻觉。
 
 ## 1) 该唤起（Trigger）— 正式部署
 
@@ -50,7 +50,7 @@
 - **不要**重新 `+deploy` 创建第二个 endpoint
 - **不要**给出 `arkcli +code-example --endpoint-id ep-xxx --language python`（`--endpoint-id` 不是合法 flag，运行会报错）
 
-## 5) 反触发 — 模型 ID 未定
+## 5) 意图澄清 — 部署目标明确但模型 ID 未定
 
 输入：
 
@@ -58,8 +58,10 @@
 
 期望行为：
 
-- 路由 `arkcli-models`，先 `arkcli models search <keyword>` 或 `arkcli models list`
-- 不要在没 model ID 时直接 `+deploy`
+- owning skill 保持 `arkcli-deploy`；`arkcli-models` 只提供临时的只读候选查询能力，不能接管完整部署任务
+- 只执行一次有界实时查询：`arkcli models search [keyword] --size 10 --format json`，候选必须来自本次结构化输出
+- 按当前结果的 0/1/N 个候选处理：没有候选就补充条件，唯一候选就复述确认，多个候选就让用户明确选择
+- model ID 唯一确定前，不执行 `arkcli +deploy`、`arkcli infer endpoint create` 或 Raw API 创建
 
 ## 6) Agent 反幻觉清单（重点）
 

@@ -1,6 +1,6 @@
 ---
 name: arkcli-gen
-version: 2.1.0
+version: 2.1.1
 description: "火山方舟 Ark 图片/视频生成入口：支持 profile 默认资源与临时 API Key/Base URL/Endpoint；显式 Endpoint 不受当前 plan profile 误导。图片同步返回，视频异步轮询。"
 metadata:
   requires:
@@ -156,6 +156,16 @@ arkcli +gen --model "$MODEL" --input @ref.jpg "<prompt>"
 | **图片** | **同步**：直接返回 `output_url` + `local_path` | `arkcli +gen ... --open` 让图片直接弹给用户看 |
 
 > **⚠️ 行为变更（2.0）**：视频任务默认已从"自动等待完成"改为"提交即返回 task_id"。需要旧的同步阻塞行为，显式加 `--wait`。
+
+### 已有 task 的脚本轮询契约
+
+`gen get --format json` 的 `status` 是对象，终态必须读 `.status.phase`，不是把整个 `.status` 与字符串比较。生成 shell 轮询脚本时必须遵守：
+
+- 轮询阶段用 `arkcli gen get "$TASK_ID" --save-to="" --format json` 禁用自动下载，每轮只读状态。
+- `PHASE=$(printf '%s' "$RESULT" | jq -r '.status.phase // empty')`，再对 `succeeded` / `failed` / `cancelled` 做显式分支。
+- `succeeded` 时最多再执行一次带目标 `--save-to` 的 `gen get` 下载产物，然后立即 `break`；`failed` / `cancelled` 报告 `status.message` 或 `error` 后立即 `break`。
+- `queued` / `running` 才 sleep 后继续；未知 phase 或 `gen get` 自身失败应停止并报错，不能当作 running 无限循环。
+- 整个脚本只查已有 task，禁止在轮询或失败分支重新执行 `+gen`。
 
 ## 快速决策
 

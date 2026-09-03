@@ -1,7 +1,7 @@
 ---
 name: arkcli-plans
-version: 1.2.0
-description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/codex/opencode/openclaw/trae)上 Agent Plan 内置 MCP(豆包搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
+version: 1.2.3
+description: "ARK 套餐管理(Agent Plan / Coding Plan,个人版 + 企业版):查询持有 / 购买 / 续费 / 模型清单 / 轮换 APIKey,**以及企业版席位的全部管理操作**:列出席位(`plans team seat-list`)、给员工分配席位(`plans team seat-assign`)、查谁绑了哪个 seat、轮换席位 APIKey(`plans team rotate-apikey`)。也负责购买参数的逐步澄清，以及 `payment_failed` + Order ID 后回到已有订单补单/取消，禁止重新 buy。命中关键词:套餐 / 买 / 续费 / 列席位 / 看 seat 绑定 / 谁绑了哪个 seat / 给员工分席位 / 解绑 / 团队席位 admin 视图 / 轮换 APIKey。反触发：Token 额度包/资源包不是 Agent Plan/Coding Plan，应走 arkcli-profile 判断 platform 切面。**用量类问题(还剩多少额度 / 用了几成 / 每个 seat 用了多少)走 [arkcli-usage](../arkcli-usage/SKILL.md)。**动词路由:**列 / 绑 / 分 / 轮换 / 解绑** → 这里;**用 / 消耗 / 多少** → arkcli-usage。另含 harness-status:只读查看本机 AI Agent(claude-code/codex/opencode/openclaw/trae)上 Agent Plan 内置 MCP(豆包搜索/dataPro/OpenViking)装没装、key 就没就绪;命中:我的 MCP 装好了吗 / 查 MCP 安装状态 / 看 agent 上的 MCP / harness 状态。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -12,6 +12,22 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)，其中包含认证闸门、配置排查与共享安全规则。**
 **CRITICAL — 任何 `plans buy` / `plans renew` / `plans personal rotate-apikey` / `plans team seat-assign` / `plans team rotate-apikey` 在执行之前，务必先用 Read 工具读取对应 `references/*.md`，禁止盲目调用。**
+**CRITICAL — Token 额度包 / Token 资源包是 platform 按量计费产品，不是本 skill 管理的 Agent Plan / Coding Plan。不得因「套餐」或价格字样调用 `plans get/buy/renew`；转 [`arkcli-profile`](../arkcli-profile/SKILL.md) 解释 `platform` + `/api/v3` 归属。**
+
+## 购买意图的逐步收参与失败重入
+
+购买信息缺失时按固定顺序逐个收敛，不把所有问题堆在同一轮：
+
+1. 先问套餐家族：`Agent Plan` 还是 `Coding Plan`。
+2. 再问形态：个人版还是企业/团队版，映射到 `--plan <agent-plan|coding-plan|agent-plan-team|coding-plan-team>`。
+3. 再问档位 `--type`：Agent Plan 只从 `small/medium/large/max` 选，Coding Plan 只从 `lite/pro` 选。
+4. 再问时长 `--duration`；只有团队版再问席位数 `--quantity`。
+
+同时缺多项时，当前轮只问上述顺序中第一个未知决策。宿主有结构化选择能力时优先用，但通用 Skill 不写死工具名；没有时用简短选项文本退化。参数已全部明确且用户只要命令时，只给不带 `--yes` 的第一次协议闸门命令，不执行。
+
+“当前轮只问一个决策”也限制当前轮可展示的信息：只列出该层的选项和必要差异，不得在说明、括号、示例或下一步预告中泄露后续层的选项名、合法值或 flag。比如套餐家族尚未确定时，回复中只能出现 `Agent Plan` 与 `Coding Plan` 及二者的简短区别，不能同时列出个人/团队、`small/medium/large/max`、`lite/pro`、时长或席位数。用户回答当前层后，下一轮再展示下一层。
+
+`payment_failed` 且返回 Order ID 表示订单已经落库。必须复述该 Order ID，引导用户到 console 对这一单补付或取消；不重新收参，不执行 `plans buy` / `plans renew`，也不用 billing 出账记录代替已有订单的支付重入点。
 
 ## 🔒 协议闸门（plans buy / plans renew 强制流程）
 

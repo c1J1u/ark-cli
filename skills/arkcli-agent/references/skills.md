@@ -18,7 +18,7 @@
 - Market skill 的 `agent skill search/list --source market` 调 SkillHub `ListMarketSkills`；custom skill 的 `agent skill list --source custom` 调 TOP `ListSkills`。两条链路都支持 SSO 通过本地 STS 直签，以及 AK/SK profile 通过 AK/SK 直签；不要走 ArkBFF 或 top_proxy pre-sign。
 - 选择 market skill 时看 `Items[].Name`、`Description`、`Keywords`、`EvaluationScore`、`LatestVersionStatus.Version`；创建入参可直接取返回的 `AgentSkills` 或手动组 `{Type: skill_hub, SkillId, Version}`。
 - 选择 custom skill 时先读取第一页完整 `Items`，综合比较 `Id`、`Name`、`Description`、`LatestVersion`，不要只看第一条或只依赖服务端关键词匹配；如果没有足够相关的候选，再用 `NextPage` 继续读取下一页。`AgentSkills` 只会包含 `skill-...` custom skill。确认候选后可直接取 `AgentSkills`，或传裸 `--skill <Items[].Id>`。
-- 多个候选接近时列候选让用户选；用户要求自动完成时选相关度最高、版本最明确的一项。通用数据分析优先考虑覆盖面广的分析 skill，再按需要追加 Excel/CSV/报表/可视化类 skill。
+- 多个候选接近时，使用宿主结构化选择能力展示本轮结果中的 `Id`、`Name`、`Description`、`LatestVersion`，宿主不支持时才退化为精简编号列表。用户明确要求自动完成时，只有相关度和版本证据能形成清晰第一名才自动选择并说明依据；否则仍需澄清，不能用“自动完成”授权任意挑选。通用数据分析优先考虑覆盖面广的分析 skill，再按需要追加 Excel/CSV/报表/可视化类 skill。
 - 分页选择优先使用“按需读取”：第一页使用 `--limit 100`，后续把上一次响应的 `NextPage` 原样传给 `--page`。只有用户明确要求完整清单、需要离线分析全部 Skill，或多页都没有命中时，才使用 `--page-all`；它受全局 `--page-limit` 限制，不能把截断的 catalog 当成完整候选集。
 - 不要把 `Items[].Id` 和 `LatestVersionStatus.VersionId` 混用：创建 Agent 要传 `SkillId` + 语义版本 `Version`，不是 `VersionId`。
 

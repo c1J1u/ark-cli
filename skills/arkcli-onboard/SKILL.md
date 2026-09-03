@@ -1,6 +1,6 @@
 ---
 name: arkcli-onboard
-version: 1.0.0
+version: 1.0.1
 description: "arkcli 接入向导(workflow):把某个模型接入到自己的应用/服务的端到端引导 —— 从'我想用某模型'到拿到可调用的 Endpoint(+ 可选示例代码)。当用户说'我想在我的 app/服务里用豆包/某模型''怎么把方舟模型接进来''帮我接入 XX 模型''想正式用上某模型'这类**不含 deploy/部署关键词、但本质是正式接入**的意图时触发。已明确说'部署/创建 endpoint'的直接走 arkcli-deploy;只想试效果/问一句的走 +chat/+gen。反触发：TTS/ASR/语音模型接入不走本向导，只能转 models search 说明 arkcli 当前不支持调用/部署/示例/用量/费用/接入。"
 metadata:
   requires:
@@ -48,7 +48,7 @@ Step 2  查是否已有可复用 Endpoint     ★必查★
           └─► arkcli-infer-endpoint：list --mine（"我的"语义见
               ../arkcli-auth/references/identity-resolution.md）
               ├─ 有 EP 且【绑定目标模型/版本】+【状态可用(如 Running)】
-              │    多个匹配或不确定时先让用户确认选哪个 ─► 跳到 Step 4（复用其 endpoint-id）
+              │    多个匹配或不确定时按本轮结果结构化选一个 ─► 跳到 Step 4（复用其 endpoint-id）
               └─ 无匹配 EP（账号下只有别的模型的 EP 不算匹配）─► Step 3
 
 Step 3  创建 Endpoint                 ★唯一写操作★
@@ -65,7 +65,7 @@ Step 5  回执
 
 ## 关键约束
 
-- **Step 2 必查、但只复用"匹配"的**：仅当 `list --mine` 里存在**绑定目标模型/版本**且**状态可用(如 Running)**的 endpoint 才跳过 Step 3 复用它；账号下别的模型的 endpoint **不算匹配**，不能拿来顶。多个匹配或拿不准就先让用户确认选哪个，别默默挑一个——否则会给出与目标不一致的 endpoint-id，链路不闭环。无匹配就正常走 Step 3 创建。
+- **Step 2 必查、但只复用"匹配"的**：仅当 `list --mine` 里存在**绑定目标模型/版本**且**状态可用(如 Running)**的 endpoint 才跳过 Step 3 复用它；账号下别的模型的 endpoint **不算匹配**，不能拿来顶。多个匹配时，使用宿主结构化选择能力展示本轮结果中的 endpoint-id、绑定模型/版本、状态和名称；宿主不支持时才退化为精简编号列表。用户选定后直接复用该 ID，不重新查询同一批结果，也不把“选中已有 Endpoint”当成授权创建新资源。无匹配就正常走 Step 3 创建。
 - **语音模型不是 onboarding 目标**：广场可搜到的语音模型只代表可发现，不代表 arkcli 可调用、可部署、可生成示例、可查用量/费用；Step 1 一旦确认是语音模型，流程必须停止，不进入 Step 2-Step 4。
 - **不要补替代接入路径**：语音模型命中后只回答 arkcli 边界；不要主动推荐控制台 / OpenAPI / SDK 接入步骤或链接。
 - **Step 3 是唯一写操作**：套用 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md) 的二次确认 + 实名闸门；`+deploy` 不支持 `--dry-run`，用户语气再急也要先只读核对并确认。

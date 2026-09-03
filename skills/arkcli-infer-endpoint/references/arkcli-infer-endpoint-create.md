@@ -24,6 +24,17 @@ Client Preview 的 `ModelReference` 与模型开通检查依赖在线信息，�
 `fidelity=partial` 并列出 `unresolved`。它不是服务端 validation，也不证明模型
 已开通或请求会被接受。
 
+## 模型未指定时
+
+`--model` 是必填参数。用户已经明确选择脚本化 / CI / 无护栏 raw CRUD，但没有给模型或只给品牌、系列、家族名时，不要凭记忆补全，也不要先用缺失参数试跑 `--dry-run`：
+
+1. 读取 [`../SKILL.md` 的「raw CRUD 创建前的模型澄清」](../SKILL.md#raw-crud-创建前的模型澄清)。
+2. 只执行一次有界的实时 `arkcli models search [<keyword>] --size 10 --format json`，从本轮结构化结果形成 0/1/N 候选。
+3. 多候选优先用宿主的结构化选择能力让用户选择；选项只能来自本轮返回，禁止全量 `models list`、逐候选 `models get` 或凭记忆补版本。
+4. 选定唯一完整模型 ID 后再运行本地 `--dry-run`。用户只要求预览时停止；真实创建继续遵守共享写操作守卫。
+
+普通“创建 / 部署 Endpoint”意图仍应走 [`arkcli-deploy`](../../arkcli-deploy/SKILL.md)；本节不能把普通创建降级成无护栏 raw CRUD。
+
 ## Global Flags
 
 | Flag | Type | Description |

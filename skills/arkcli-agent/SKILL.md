@@ -1,6 +1,6 @@
 ---
 name: arkcli-agent
-version: 1.1.1
+version: 1.1.5
 description: "arkcli agent：管理 ARK Managed Agents，包括 Agent / Skill / Env / Session / File / Memory Store / Vault / MCP OAuth。控制面优先走 ForTop/OpenTOP，Session 运行时和 Files 走数据面直联。"
 metadata:
   requires:
@@ -20,13 +20,29 @@ metadata:
 
 | 用户输入 | AI Agent 的处理 |
 | ---- | ---- |
-| 未指定模型 | 先用 `agent model list --query` 从 Managed Agent 白名单中选择精确 `items[].model`，不要凭印象拼模型 ID |
+| 未指定模型 | 只执行一次 `arkcli agent model list --query "<用户业务意图>" --primary-only --format json`，从完整结构化结果中取得候选；不要省略 query 值、不要用管道/重定向截断输出、不要凭印象拼模型 ID |
 | 未指定 Skill | 先查本账号 custom skill；没有合适候选再查 market/SkillHub skill |
 | 给出本地 Skill zip | 先调用 `agent skill create --zip`，拿到返回的 `skill-...` ID 和版本后再创建 Agent |
 | 未指定工具 | 使用 CLI 注入的完整默认工具集；显式传 `--tool` 时全量替换默认工具 |
 | 未指定环境 | 创建 Session 时自动选择当前项目最新环境；没有可用环境才提示创建或传入环境 ID |
 | 创建成功 | 必须回读 `agent agent get <agent-id> --format json`，展示服务端最终的 Model、System、Tools、Skills、McpServers 和扩展配置 |
 | 用户期待 Agent 回复 | 短请求使用 `+new session ... --message` 或 `events send ... --stream`；大 payload / 长耗时任务使用 `events send --poll`，或 send 立即返回后按 cursor 轮询 events / 使用 `+tail`，不要让所有任务都阻塞等待 |
+
+## 业务目标澄清
+
+模型、Agent、Skill、MCP provider 等目标无法唯一确定时，遵循
+[`arkcli-shared`](../arkcli-shared/SKILL.md) 的 0/1/N 结构化选择契约：先做一次最小
+只读查询，选项只取本轮完整结构化结果中的真实 ID 和区分字段。多个候选会改变远端结果
+时使用宿主结构化选择能力；唯一候选直接继续。选择目标只完成消歧，不等于授权后续创建、
+更新或删除。
+
+模型选择是创建 Agent 的强制停点：只能用用户明确给出的硬约束和产品 eligibility 字段
+过滤上述查询结果；相关度、返回顺序、推荐或 Agent 自己的“更适合”判断都不能把多个候选
+变成唯一候选。过滤后为 N 个（N > 1）时必须把真实 `items[].model` 交给用户选择；
+用户选定前不得查询 Agent Skill，也不得执行任何 preview、`agent agent create/update`、
+`+new-agent` 或 `+iterate`。这也是当前回合的硬返回点：展示候选后立即结束回合，不再探测
+上述写命令的 `--help`，不准备后续参数，也不查询 Skill/MCP 候选。推荐项可以标注理由，
+但不能代替用户作出选择。
 
 ## 先选路径
 

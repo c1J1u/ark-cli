@@ -1,7 +1,7 @@
 ---
 name: arkcli-infer-endpoint
-version: 1.3.0
-description: "arkcli 推理接入点**管理**能力：对**已有** Endpoint 做获取、列表、启动、停止、删除、更新（生命周期管理 + 启停 + 销毁）。优先使用产品命令 `arkcli infer endpoint ...`，而不是直接调用 Raw API。**反触发（重要）：用户说『创建/新建/create/部署/deploy 一个 endpoint/接入点』这类新建接入点的意图，一律走 arkcli-deploy（`+deploy`），不要用本 skill 的 `infer endpoint create`**；本 skill 的 `create` 仅用于脚本化 / CI / 需要无护栏的可预测 raw CRUD 行为（不做复用检查、不渲染示例）、且明确要绕过 +deploy 工作流护栏的场景。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
+version: 1.3.6
+description: "arkcli 推理接入点管理与显式 raw CRUD 创建能力。**正向触发：用户明确要求脚本化 / CI / 无护栏 / 原始 raw CRUD 创建 Endpoint 时，必须使用本 skill 的 `arkcli infer endpoint create` 路径，不能切到 `arkcli-deploy`**；模型缺失或只有品牌/家族名时仍留在本 skill，先执行实时有界候选与 0/1/N 澄清，模型未唯一确定前禁止 preview 或创建。本 skill 也负责对**已有** Endpoint 做获取、列表、启动、停止、删除、更新，以及在 NotFound 后用当前完整列表 + 历史 usage 判断 ID 是否不完整或仅有历史记录。普通的『创建/新建/部署一个 endpoint』仍走带产品护栏的 arkcli-deploy（`+deploy`），只有用户明确选择上述原始路径才例外。优先使用产品命令 `arkcli infer endpoint ...`，而不是 Raw API。TTS/ASR/语音模型连 raw create 也不要引导，只能转 models search 说明 arkcli 不支持 Endpoint 创建。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -9,6 +9,10 @@ metadata:
 ---
 
 # arkcli infer endpoint
+
+**CRITICAL — 显式脚本化 / CI / 无护栏 / 原始 raw CRUD 创建是本 skill 的正向触发，不得因为出现“创建 Endpoint”就转到 `arkcli-deploy`。**
+
+**CRITICAL — 模型候选查询本轮最多执行一次。无论成功、空结果还是失败，都禁止重试、改跑 `models list/get/* --help`、修改配置或把凭证写进命令行；失败时原样说明并停止。**
 
 **CRITICAL — 开始前 MUST 先读取 [`../arkcli-shared/SKILL.md`](../arkcli-shared/SKILL.md)。**
 
@@ -35,6 +39,28 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 需要 SSO 子账号登录；root 账号 / AK-SK 直接报错（引导重登）。
 详细行为见 [`references/arkcli-infer-endpoint-list.md`](references/arkcli-infer-endpoint-list.md)。
 
+## Endpoint NotFound 的只读排障
+
+用户已经观察到 `InvalidEndpointOrModel.NotFound`，或 `get` 查不到某个 Endpoint 时，不要直接宣称「已删除」，也不要猜测尾部字符。按两个独立事实源收敛：
+
+**禁止仅按 ID 长度、形状、当前列表里的其他 ID 或常见格式，声称用户输入「缺少后缀 / 缺少随机字符 / 不是完整 ID」。** 只有当前列表返回了以用户输入为前缀的唯一真实 ID，才能把该完整 ID 作为证据复述；否则只能报告未找到。
+
+1. 查当前身份与 project 可见的完整列表，同时核对精确 ID 和用户所给前缀。列表可能很大，必须在 shell 内只保留匹配项，避免把无关 Endpoint 全量灌入 Agent 上下文：
+
+   ```bash
+   arkcli infer endpoint list --page-all --page-size 100 --format json \
+     | jq --arg id '<endpoint-id>' '[.Items[]? | select(.Id == $id or (.Id | startswith($id)))]'
+   ```
+
+   `<endpoint-id>` 必须替换为用户提供的原值；不得省略 `--page-all` 后只拿第一页下结论。
+2. 读取 [`../arkcli-usage/references/arkcli-usage-stats.md`](../arkcli-usage/references/arkcli-usage-stats.md)，再用 `arkcli usage stats --start <YYYY-MM-DD> --end <YYYY-MM-DD> --endpoint <endpoint-id> --format json` 核对历史用量。用户给了时间范围就照用；没给时默认查最近 30 天，必须把占位符换成实际日期。
+
+结论必须与证据强度对齐：
+
+- 当前列表找到唯一的完整 ID：复述真实 ID，说明原输入是否少尾部；不要凭格式自己补齐。
+- 当前列表无记录、但历史用量有记录：只能说「曾经有调用，当前不可见」，不能单凭这两步区分已删除、换身份或换 project。
+- 两处都没有证据：报告「未找到」，建议核对原始 ID、profile 和 region；禁止为了让任务继续而创建 Endpoint、切 profile 或走 Raw API。
+
 ## `infer endpoint create` 与 `+deploy` 的边界
 
 `infer endpoint create` 是**原始 CRUD**，适合脚本化 / CI / 需要无护栏可预测行为的场景。注意它的 flag 集其实是 `+deploy` 的**子集**（`+deploy` 才是参数超集），差别在"有没有工作流护栏"，不是"谁参数更多"。它**不包含** `+deploy` 的以下护栏：
@@ -48,6 +74,18 @@ arkcli infer endpoint list --mine --page-all --page-size 100 --format json
 **路由判定**：只要用户意图是"创建 / 新建 / create 一个 endpoint / 接入点"或"把模型部署 / 上线"（无论用词是 create 还是 deploy），一律路由到 `+deploy`（[arkcli-deploy](../arkcli-deploy/SKILL.md)）；**只有**用户明确需要绕过工作流护栏、脚本化 / CI、或要无护栏的可预测 raw CRUD 行为时，才使用 `infer endpoint create`。
 
 **例外**：如果目标是语音模型（TTS / ASR / 播客 / 音色 / 实时语音交互），不要因为用户说了"create endpoint"就进入本 skill；语音模型在 arkcli 当前只支持 `models search` 发现，不支持 Endpoint 创建。
+
+## raw CRUD 创建前的模型澄清
+
+本节只在用户已经明确选择脚本化 / CI / 无护栏 raw CRUD 路径、但 `--model` 仍缺失或只有品牌、系列、家族名时生效。普通创建意图仍按上一节路由到 [`arkcli-deploy`](../arkcli-deploy/SKILL.md)，不能因为模型未定就改走 raw create。
+
+候选生成必须复用 [`arkcli-deploy` 的「创建意图中的模型澄清」](../arkcli-deploy/SKILL.md#创建意图中的模型澄清)契约：只执行一次有界的实时 `arkcli models search [<keyword>] --size 10 --format json`，只从本轮结构化结果读取 `name`、`primary_version`、`lifecycle_status` 和模态等已有字段，过滤、完整模型 ID 组合及 0/1/N 候选处理均与 `+deploy` 一致。禁止改成全量 `models list`、逐候选循环 `models get`，也禁止凭记忆补版本。
+
+- **0 个候选**：如实说明本轮没有查到，请用户补充用途、模态或关键词。
+- **1 个候选**：复述本轮返回的完整模型 ID，请用户确认。
+- **多个候选**：优先使用当前宿主提供的结构化选择能力，把本轮实时返回的精简候选直接列成选项；通用 Skill 不写死宿主工具名，如果宿主会自动补自由输入项，不要再添加“其他 / 手动指定”重复兜底。宿主没有结构化选择能力时，才退化为精简列表并要求用户明确回复一个完整 ID。
+
+选定唯一模型后，仍保持在 `arkcli-infer-endpoint` 的 raw CRUD 路径：先生成 `arkcli infer endpoint create ... --dry-run` 的本地 `preview.v1`；用户只要求预览时到此停止，要求真实创建时继续遵守共享写操作守卫。模型未唯一确定前，禁止执行 `--dry-run`、真实 `infer endpoint create`、`+deploy` 或 Raw API 创建。
 
 ## 命令一览
 

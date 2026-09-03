@@ -36,6 +36,9 @@ arkcli models custommodel list --page 1,20 --sort-by CreateTime --sort-order des
 
 # 自动翻页
 arkcli models custommodel list --mine --page-all --page-delay 500
+
+# 部署前获取完整 ready 候选（只读）
+arkcli models custommodel list --mine --statuses ready --page-all --page-delay 500 --format json
 ```
 
 ## Flags
@@ -63,3 +66,7 @@ arkcli models custommodel list --mine --page-all --page-delay 500
 - `--format table` / `--format csv` 按模型展开，每个 `result.items[]` 输出一行，不会把整个 `result` 显示成 map。
 
 每个 item 通常含 `id` (cm-xxxxx) / `name` / `status` / `foundation_model` / `customization_type` / `source_type` / `create_time` / `update_time`。表格单元格中的嵌套字段（如 `foundation_model`）使用紧凑 JSON 表示。
+
+## 部署前选目标
+
+用户要部署“我的自定义模型”但未给出唯一 `cm-*` 时，使用上面的完整 ready 候选查询，并只基于本轮 JSON 结果做 0 / 1 / N 收敛：0 个停止并提示先准备模型；1 个复述后转交 `arkcli-deploy`；多个使用宿主提供的结构化选择能力展示 `id / name / foundation_model / create_time`。该查询一轮最多执行一次；认证、配置、网络错误或结果不完整时原样返回，不换写法重试，也不扫描本地配置。唯一目标确定前不得执行 `+deploy`、`infer endpoint create` 或 Raw API；选定目标后仍需遵守部署写操作确认。

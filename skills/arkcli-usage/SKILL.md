@@ -1,7 +1,7 @@
 ---
 name: arkcli-usage
-version: 1.3.2
-description: "ARK 用量查询:`usage stats`(Token / 请求数,5-30 分钟延迟)、`usage plan` / `usage balance --type plan`(套餐额度快照)、`usage plan-details`(按模型时间序列,套餐内/外拆分)、`usage balance`(余额:免费额度 / 媒资库 / 套餐)、`usage seats --with-usage`(团队席位用量 by seat)。命中关键词:用量 / 用了多少 / 还剩多少额度 / 套餐用了几成 / 套餐内套餐外 / 每个 seat 消耗。**席位的列表 / 绑定 / 分配 / 轮换 APIKey 属管理范畴,走 arkcli-plans;本 skill 只回答用量。**动词路由:**用 / 消耗 / 多少** → 这里;**列 / 绑 / 分 / 轮换** → arkcli-plans。反触发：TTS/ASR/语音模型用量不支持查询，只能转 models search 说明广场发现边界。"
+version: 1.3.4
+description: "ARK 用量查询:`usage stats`(Token / 请求数,5-30 分钟延迟)、`usage plan` / `usage balance --type plan`(套餐额度快照)、`usage plan-details`(仅 Agent Plan 按模型时间序列,套餐内/外拆分)、`usage balance`(余额:免费额度 / 媒资库 / 套餐)、`usage seats --with-usage`(团队席位用量 by seat)。Coding Plan 只有 quota 快照，不能用 stats 冒充按模型套餐明细。命中关键词:用量 / 用了多少 / 还剩多少额度 / 套餐用了几成 / 套餐内套餐外 / 每个 seat 消耗。**席位的列表 / 绑定 / 分配 / 轮换 APIKey 属管理范畴,走 arkcli-plans;本 skill 只回答用量。**动词路由:**用 / 消耗 / 多少** → 这里;**列 / 绑 / 分 / 轮换** → arkcli-plans。反触发：TTS/ASR/语音模型用量不支持查询，只能转 models search 说明广场发现边界。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -14,6 +14,8 @@ metadata:
 **CRITICAL — `usage stats` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-stats.md`](references/arkcli-usage-stats.md),禁止直接盲目调用命令。**
 **CRITICAL — `usage plan` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-plan.md`](references/arkcli-usage-plan.md),禁止直接盲目调用命令。**
 **CRITICAL — `usage plan-details` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-plan-details.md`](references/arkcli-usage-plan-details.md),禁止直接盲目调用命令。**
+**CRITICAL — Coding Plan / Coding Plan Team 当前不提供按模型套餐明细。这类问题只能用 `usage plan --product coding-plan`（团队版用 `--product coding-plan-team`）给 quota 快照并明说能力边界；禁止改跑 `usage stats` 后把 platform / Endpoint Token 统计冒充 Coding Plan 套餐按模型明细。**
+**CRITICAL — 上述 Coding Plan 问题在本轮执行 `usage plan` 并说明边界后就停止。不主动追加 Endpoint / platform `usage stats`，因为它无法归因为 Coding Plan 套餐明细；只有用户在知道两者不同后另行明确要求「再看 platform / Endpoint 用量」，才开新查询。**
 **CRITICAL — `usage balance` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-balance.md`](references/arkcli-usage-balance.md),禁止直接盲目调用命令。**
 **CRITICAL — `usage seats` 在执行之前,务必先用 Read 工具读取 [`references/arkcli-usage-seats.md`](references/arkcli-usage-seats.md),禁止直接盲目调用命令。**
 
@@ -28,7 +30,7 @@ metadata:
 > - `balance` 出"还剩多少 X"(余额视角,`--type free-quota / media-asset / plan` 三选一)
 > - `seats` 出"团队席位**用量** admin 视角"(每个 seat 用了多少 / 套餐百分比;**只是用量视图**)。**席位的列表 / 绑定 / 分配 / API Key 轮换** 走 [`arkcli-plans`](../arkcli-plans/SKILL.md) 的 `plans team seat-list / seat-assign / rotate-apikey`。
 >
-> 用户问「我的套餐还剩多少额度」→ `plan` 或 `balance --type plan`(后者输出更精简);「我哪个模型用得最多」→ `plan-details`;「我今天用了多少 token」→ `stats`;「我还剩多少免费额度 / 媒资库容量」→ `balance`;「**每个 seat 用了多少 / 团队席位用量分布**」→ `seats --with-usage`(纯管理类:谁绑了哪个 seat / 列出席位 / 分配席位 / 轮换 key → `arkcli-plans`)。
+> 用户问「我的套餐还剩多少额度」→ `plan` 或 `balance --type plan`(后者输出更精简);「我哪个模型用得最多」→ Agent Plan 用 `plan-details`，Coding Plan 只能用 `plan` 给 quota 快照并说明不支持按模型拆分;「我今天用了多少 token」→ `stats`;「我还剩多少免费额度 / 媒资库容量」→ `balance`;「**每个 seat 用了多少 / 团队席位用量分布**」→ `seats --with-usage`(纯管理类:谁绑了哪个 seat / 列出席位 / 分配席位 / 轮换 key → `arkcli-plans`)。
 
 ## Step 0(MUST):查"我的用量"先按 profile 路由
 
@@ -84,6 +86,7 @@ metadata:
 - 用户问"我哪个模型用得最多 / 套餐内套餐外各占多少 / 团队某个子用户用得多":
   - `arkcli usage plan-details`(默认近 7 天 Day 粒度,AgentPlan personal)
   - `arkcli usage plan-details --product=agent-plan-team`(团队版,自动找 caller seat 或显式 `--seat <id>`)
+  - **Coding Plan 例外**：不执行 `plan-details` 或 `stats`；只执行 `arkcli usage plan --product coding-plan`(团队版用 `coding-plan-team`)，并明确该结果只是 quota 快照、不是本周按模型明细，然后停止。用户未另行要求 platform / Endpoint 用量时，不主动补跑 `usage stats`。
 - 用户问"我的用量 / 我今天用了多少 token / 我的 endpoint 消耗":
   - **先过 Step 0(本文档顶部)定 profile.type + 模态**:agent-plan / coding-plan(text 模态)要**先**查套餐桶(`usage plan`;agent-plan 再加 `usage plan-details`),再做下面的 endpoint 桶;platform、或 coding-plan 的 image/video 模态直接进 endpoint 桶 —— 别把"我的用量"等同于"我的 endpoint 用量"
   - 如果用户点名的是语音模型或 TTS / ASR 场景 → **不要继续查 usage**；当前 arkcli 只承认语音模型广场发现，不支持语音模型用量查询
@@ -133,7 +136,7 @@ metadata:
 | 用户怎么说 | 对应命令 |
 |---|---|
 | "按模型明细 / 哪个模型用得最多 / 模型维度拆分 / 按模型时序 / 套餐内套餐外按模型" | `arkcli usage plan-details` |
-| "coding plan 按模型明细 / coding plan 套餐内套餐外" | `arkcli usage plan-details --product=coding-plan-personal` |
+| "coding plan 按模型明细 / coding plan 套餐内套餐外" | `arkcli usage plan --product coding-plan`，并明说只支持 quota 快照、不支持按模型时序明细；禁止用 `usage stats` 冒充 |
 | "配额还剩多少 / 余额 / 还能用多少 / 用了几成 / 套餐额度" | `arkcli usage plan` 或 `arkcli usage balance --type plan` |
 | "免费额度还有多少 / 模型免费额度 / 免费 token" | `arkcli usage balance --type free-quota` |
 | "AFP 消耗 / 今日 AFP / 本周 AFP" | `arkcli usage plan`（AFP 就是套餐额度单位） |

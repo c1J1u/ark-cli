@@ -1,7 +1,7 @@
 ---
 name: arkcli-chat
-version: 1.2.1
-description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；有明确产出形态的多模态理解走 arkcli-understand。"
+version: 1.2.2
+description: "arkcli +chat：通过数据面 Responses API 快速对话/推理，支持多模态、流式、多轮、临时 API Key/Base URL/Endpoint 执行与无副作用 dry-run。当用户给出 Endpoint 但未说明工作流时，先用 resources resolve 识别候选；已经出现 Responses API capability/access 错误时，只读用 models get 核对精确模型的 api_support，不重试真实调用。有明确产出形态的多模态理解走 arkcli-understand。"
 metadata:
   requires:
     bins: ["arkcli"]
@@ -69,6 +69,17 @@ metadata:
 - endpoint ID 要用 `+chat`：直接传 `--model ep-xxx`（endpoint 本身已决定模态，无需额外 flag）。
 - Endpoint + 显式 API Key、未给 Base URL：CLI 会读取 Endpoint region 后派生 Base URL；无法取得权威 region 时再要求用户补 `--base-url`。
 - 鉴权失败：转 [`../arkcli-auth/SKILL.md`](../arkcli-auth/SKILL.md)。
+
+## Responses API capability/access 错误的只读核对
+
+用户已经给出 `model does not have access to responses api` 类错误时，本轮是排障，不是「再试一次」：
+
+1. 若已知精确、完整的版本化模型 ID，只执行 `arkcli models get <model-id> --format json`；禁止用 `models search` 的候选摘要代替单模型详情。
+2. 在 `api_support` 数组中按 `name` / `key` / `path` 定位 Responses 项，以该项的 `supported` 为模型声明事实；不从模型名、lifecycle、tool 列表或其他 capability 反推。
+3. `supported=true` 但实际调用报 access 错误：说明「模型声明支持，当前 Endpoint / 账号访问路径不可用」；若用户还给了 Endpoint ID，可再只读 `resources resolve` / `infer endpoint get` 核对绑定与状态。
+4. `supported=false` 才能说模型目录声明不支持；Responses 项缺失则说明元数据不足，不做猜测。
+
+全程禁止再次执行 `+chat`、自动 `models activate`、切 profile 或修改默认资源。
 
 ## 命令一览
 
