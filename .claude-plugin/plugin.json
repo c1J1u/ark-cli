@@ -1,0 +1,28 @@
+{
+  "name": "ark-cli",
+  "version": "1.0.25",
+  "description": "Volcengine Ark skills for AI coding agents: chat, multimodal understanding, image/video generation, model queries, plans, finetuning, endpoint deployment, usage, billing, and diagnostics — all via the arkcli CLI.",
+  "description_i18n": {
+    "en": "Volcengine Ark skills for AI coding agents: chat, multimodal understanding, image/video generation, model queries, plans, finetuning, endpoint deployment, usage, billing, and diagnostics — all via the arkcli CLI.",
+    "zh-CN": "火山方舟技能包：通过 arkcli 命令为 Agent 提供对话、多模态理解、图片/视频生成、模型查询、Plan 管理、精调、Endpoint 部署、用量、账单与诊断能力。"
+  },
+  "author": {
+    "name": "Beijing Volcano Engine Technology Co., Ltd.",
+    "url": "https://www.volcengine.com/product/ark"
+  },
+  "homepage": "https://github.com/volcengine/ark-cli",
+  "repository": "https://github.com/volcengine/ark-cli",
+  "license": "Apache-2.0",
+  "keywords": [
+    "volcengine",
+    "ark",
+    "arkcli",
+    "doubao",
+    "llm",
+    "multimodal",
+    "text-to-image",
+    "text-to-video",
+    "finetune",
+    "maas"
+  ]
+}

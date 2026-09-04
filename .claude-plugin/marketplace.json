@@ -1,0 +1,20 @@
+{
+  "name": "ark-cli-zcode",
+  "description": "Marketplace for the ark-cli ZCode plugin: Volcengine Ark skills driven by the arkcli CLI.",
+  "owner": {
+    "name": "c1J1u",
+    "url": "https://github.com/c1J1u"
+  },
+  "plugins": [
+    {
+      "name": "ark-cli",
+      "description": "Volcengine Ark skills for AI coding agents: chat, multimodal understanding, image/video generation, model queries, plans, finetuning, endpoint deployment, usage, billing, and diagnostics — all via the arkcli CLI.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/c1J1u/ark-cli.git"
+      },
+      "homepage": "https://github.com/volcengine/ark-cli"
+    }
+  ]
+}
